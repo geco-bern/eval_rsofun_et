@@ -3,234 +3,35 @@ library(tidyr)
 library(lubridate)
 library(ggplot2)
 library(readr)
-# library(rsofun)
-# library(ncdf4)
-
-# ERA5 extraction
-####---------
-
-# # montlhy era 5 values 0.1 resoultion from 1982 to 2011
-# era5 <- terra::rast("~/data_scratch/big_data/data_stream-moda.nc")
-# 
-# # coordinates are shifted (+ 180)
-# 
-# new_extent <- ext(181, 360, ymin(era5), ymax(era5))  # Keeping original latitude
-# 
-# era5_1 <-  crop(era5, new_extent)
-# 
-# era5_1 <- shift(era5_1, dx = -360)
-# 
-# new_extent <- ext(0, 179.95, ymin(era5), ymax(era5))  # Keeping original latitude
-# 
-# era5_2 <-  crop(era5, new_extent)
-# 
-# era5_n <- terra::merge(era5_1,era5_2)
-# 
-# names(era5_n) <- seq(date("1982-01-01"),date("2011-12-01"),by="months")
-# 
-# prova <- rast(ext(era5_n), resolution = 0.5, crs = crs(era5_n))
-# 
-# prova <- resample(era5_n, prova, method = "average")
-# 
-# 
-# months <- seq(date("1982-01-01"),date("2011-12-01"),by="months")
-# 
-# montlhy_era5 <- NULL
-# 
-# for(i in 1:360){
-#   
-#   prova2 <- prova[[i]]
-#   
-#   prova2 <- terra::as.data.frame(prova2,xy = TRUE, na.rm = TRUE)
-#   
-#   colnames(prova2) <- c("lon","lat","aet")
-#   
-#   prova2 <- prova2 |>  mutate(aet = aet*(-1000))
-#   
-#   
-#   prova3 <- tibble(date = months[i],nest(prova2))
-#   
-#   montlhy_era5 <- rbind(montlhy_era5,prova3)
-#   
-# }
-# 
-# saveRDS(montlhy_era5,"../big_data/monthly_era5.rds")
-
-####---------
-#PML extraction
-####---------
-
-# no good quality data before 1997
-# years <- seq(1998,2011,1)
-# 
-# 
-# rast_final <- terra::rast(paste0("~/data_scratch/big_data/PML/data/Monthly_PML_ETa_",1997,".nc"))
-# 
-# names(rast_final) <- seq(date("1997-01-01"),date("1997-12-01"), by = "months")
-# 
-# 
-# for(i in years){
-# 
-#   tmp <- terra::rast(paste0("~/data_scratch/big_data/PML/data/Monthly_PML_Ec_",i,".nc"))
-# 
-#   names(tmp) <- seq(date(paste0(i,"-01-01")),date(paste0(i,"-12-01")), by = "months")
-# 
-#   rast_final <- c(rast_final,tmp)
-# 
-# }
-# 
-# #check
-# 
-# names(rast_final)
-# 
-# # FRANCESCO all this in necessary, in original rast x and y are inverted
-# 
-# rast_final <- flip(rast_final)
-# rast_final <- trans(rast_final)
-# rast_final <- flip(rast_final)
-# 
-# 
-# months <- seq(date("1998-01-01"),date("2011-12-01"),by="months")
-# 
-# montlhy_pml <- NULL
-# 
-# for(i in 1:168){
-# 
-#   prova2 <- rast_final[[i]]
-# 
-#   prova2 <- terra::as.data.frame(prova2,xy = TRUE, na.rm = TRUE)
-# 
-#   colnames(prova2) <- c("lon","lat","aet")
-# 
-#   prova3 <- tibble(date = months[i],nest(prova2))
-# 
-#   montlhy_pml <- rbind(montlhy_pml,prova3)
-# 
-# }
-
-# saveRDS(montlhy_pml,"../big_data/montlhy_pml.rds")
-####---------
-#FLUXCOM extraction
-####---------
-# 
-# dir <- "~/data_scratch/big_data/FLUXCOM/ensemble"
-# 
-# files <- list.files(dir)
-# 
-# files <- files[grep("LE",files)]
-# 
-# # first one outside for cycle
-# 
-# file <- files[grep(1997,files)]
-# 
-# LE_rast_fin <- terra::rast(paste0(dir,"/",file))
-# 
-# LE_rast_fin <-LE_rast_fin[[c(1:12)]]
-# 
-# years <- seq(1998,2011,1)
-# 
-# for(year in years){
-# 
-#   file <- files[grep(year,files)]
-# 
-#   LE_rast <- terra::rast(paste0(dir,"/",file))
-# 
-#   LE_rast <-LE_rast[[c(1:12)]]
-# 
-#   LE_rast_fin <- c(LE_rast_fin,LE_rast)
-# }
-# 
-# names(LE_rast_fin) <- seq(date("1997-01-01"),date("2011-12-01"), by = "months")
-# 
-# # FLUXCOM gives the LE in Mj per day, no good
-# # I take global temp and patm to convert LE to aet
-# 
-# # STEP1: take mean monthly temp and patm from all global driver
-# # done it in extrc ....
-# 
-# temp_patm <- readRDS("~/data_scratch/big_data/montlhy_tmp_patm_for_fluxcom.rds")
-# 
-# temp_patm$date <- seq(date("1997-01-01"),date("2011-12-01"), by = "months")
-# 
-# 
-# le_to_et <- function(df){
-#   1000 * 60 * 60 * 24 * df$le / (cwd::calc_enthalpy_vap(df$temp) * cwd::calc_density_h2o(df$temp, df$patm))
-# }
-# 
-# months <- seq(date("1997-01-01"),date("2011-12-01"), by = "months")
-# 
-# montlhy_fluxcom <- NULL
-# 
-# for(i in 1:180){
-# 
-#   prova2 <- LE_rast_fin[[i]]
-# 
-#   prova2 <- terra::as.data.frame(prova2,xy = TRUE, na.rm = TRUE)
-# 
-#   colnames(prova2) <- c("lon","lat","aet")
-#   
-#   tmp <- temp_patm$data[[i]] |>
-#     mutate(lonlat = paste0(lon,lat)) |>
-#     select(temp,patm,lonlat) 
-#   
-#   
-#   prova2 <- left_join(prova2 |> mutate(lonlat = paste0(lon,lat)),
-#                       tmp, by = "lonlat") |>
-#     rename(le = aet) |>
-#     mutate(le = le *10^6 / (60 * 60 * 24)) |> # transofrm from MJ day to J s (hopefully bith per square meter)
-#     select(le,temp,patm,lon,lat) |>
-#     drop_na()
-#   
-#   prova2$aet <- le_to_et(prova2)
-# 
-#   prova3 <- tibble(date = months[i],nest(prova2))
-# 
-#   montlhy_fluxcom <- rbind(montlhy_fluxcom,prova3)
-# 
-# }
-# 
-# saveRDS(montlhy_fluxcom,"../big_data/montlhy_fluxcom.rds")
-####--------------
-
-p_model <-  read_csv("~/data_scratch/global/driver/combined_gpp.csv")
-
-colnames(p_model) <- c("sitename","year", "month","aet","gpp","lat","lon" )
+library(terra)
+library(scico)
+library(geosphere) # use to find the nearest grid to fluxnet
+library(sf)
+library(cowplot)
 
 
-monthly_era5 <- read_rds("../big_data/monthly_era5.rds")
+# data loading
 
-montlhy_pml <- read_rds("../big_data/montlhy_pml.rds")
+p_model <-  read_rds("./data/global/global_p_model_simulation.rds")
 
-montlhy_fluxcom <- read_rds("../big_data/montlhy_fluxcom.rds")
+monthly_era5 <- read_rds("./data/global/monthly_era5.rds")
 
-# transform in yearly values
+montlhy_pml <- read_rds("./data/global/montlhy_pml.rds")
 
-# 
-# monthly_era52 <- monthly_era5 |>
-#   unnest(data) |>
-#   mutate(year = year(date)) |>
-#   group_by(year,lon,lat) |>
-#   summarise(aet = sum(aet,na.rm = T)) |>
-#   group_by(lat) |>
-#   summarise(med =median(aet,na.rm=T),
-#             q_33 = quantile(aet,0.33,na.rm=T),
-#             q_66 = quantile(aet,0.66,na.rm=T))
-#   
+montlhy_fluxcom <- read_rds("./data/global/montlhy_fluxcom.rds")
 
 
-# latidudinal profile
-
-
-# p_model2 <- p_model |>
-#   filter(year > 1996) |>
-#   group_by(lat)|>
-#   group_by(year,lon,lat) |>
-#   summarise(aet = sum(aet,na.rm = T)) |>
-#   group_by(lat) |>
-#   summarise(med =median(aet,na.rm=T),
-#             q_33 = quantile(aet,0.33,na.rm=T),
-#             q_66 = quantile(aet,0.66,na.rm=T)) |>
-#   mutate(Setup = "P_model")
+monthly_Pmodel  <- p_model |>
+  unnest(data) |>
+  mutate(year = year(date)) |>
+  filter(year > 1996) |>
+  group_by(year,lon,lat) |>
+  summarise(aet = sum(aet,na.rm = T)) |>
+  group_by(lat) |>
+  summarise(med =median(aet,na.rm=T),
+            q_33 = quantile(aet,0.33,na.rm=T),
+            q_66 = quantile(aet,0.66,na.rm=T)) |>
+  mutate(Setup = "P_model")
 
 
 monthly_era5  <- monthly_era5 |>
@@ -243,7 +44,7 @@ monthly_era5  <- monthly_era5 |>
   summarise(med =median(aet,na.rm=T),
             q_33 = quantile(aet,0.33,na.rm=T),
             q_66 = quantile(aet,0.66,na.rm=T)) |>
-  mutate(Setup = "P_model")
+  mutate(Setup = "ERA5")
 
 montlhy_pml   <- montlhy_pml   |>
   unnest(data) |>
@@ -273,81 +74,52 @@ montlhy_fluxcom   <- montlhy_fluxcom   |>
 ggplot(montlhy_fluxcom, aes(x = lat, y = med)) + geom_line()
 ggplot(montlhy_pml, aes(x = lat, y = med)) + geom_line()
 ggplot(monthly_era5, aes(x = lat, y = med)) + geom_line()
-ggplot(p_model2, aes(x = lat, y = med)) + geom_line()
+ggplot(monthly_Pmodel, aes(x = lat, y = med)) + geom_line()
 
-df <- rbind(p_model2,monthly_era5,montlhy_pml,montlhy_fluxcom)
+df <- rbind(monthly_Pmodel,monthly_era5,montlhy_pml,montlhy_fluxcom)
 
-ggplot(df, aes(x = lat, y = med, colour = Setup)) + geom_line()
+# plot the median by lat of all models
 
-
-# 
-# ggplot(df) +
-#   geom_line( aes(x = lat,y = med,color = Setup),size = 0.9) +
-#   geom_ribbon(aes(x = lat,ymin = q_33,ymax = q_66,fill = Setup ), alpha = 0.3) +
-#   # geom_line(data = monthly_era5, aes(x = lat,y = med,color = Setup),size = 0.9) +
-#   # geom_ribbon(data = monthly_era5, aes(x = lat,ymin = q_0.25,ymax = q_0.75,fill = Setup ), alpha = 0.3) +
-#   scale_color_manual(
-#     values = c(
-#       "ERA5" = "black",
-#       "P_model" = "royalblue",
-#       "PML" = "red",
-#       "FLUXCOM" = "darkgreen"
-#     ),
-#     name = "Setup"
-#   ) +
-#   scale_fill_manual(
-#     values = c(
-#       "ERA5" = "black",
-#       "P_model" = "royalblue",
-#       "PML" = "red",
-#       "FLUXCOM" = "darkgreen"
-#     ),
-#     name = "Setup") +
-#  scale_x_continuous(
-#     expand = c(0,0)
-#   ) +
-#   scale_y_continuous(
-#     expand = c(0,0)
-#   ) +
-#   theme_classic() +
-#   theme(
-#     panel.grid.major.y = element_line(),
-#     panel.grid.major.x = element_line()
-#   ) + coord_flip()
+ggplot(df, aes(x = lat, y = med, colour = Setup)) + geom_line() + coord_flip()
 
 
-# just p_model and the other
-# 
-monthly_era5 <- read_rds("../big_data/monthly_era5.rds")
+# remove everything (too much memory used)
+rm(df,monthly_era5,montlhy_pml,montlhy_fluxcom)
+gc()
 
-montlhy_pml <- read_rds("../big_data/montlhy_pml.rds")
 
-montlhy_fluxcom <- read_rds("../big_data/montlhy_fluxcom.rds")
+
+# plot all the model distribution and the P model
+
+monthly_era5 <- read_rds("./data/global/monthly_era5.rds")
+
+montlhy_pml <- read_rds("./data/global/montlhy_pml.rds")
+
+montlhy_fluxcom <- read_rds("./data/global/montlhy_fluxcom.rds")
 
 mean_model <- rbind(monthly_era5  |>
                       mutate(year = year(date)) |>
                       filter(year > 1996) |>
-                          unnest(data) |>
+                      unnest(data) |>
                       select(year,aet,lat,lon) |>
                       mutate(aet = aet * 365/12) |>
                       filter(lat > -60) |>
-                          mutate(
-                                 lat = ifelse(lat < 0,as.integer(20*lat + 1),as.integer(20*lat +2 ))) |> # so they are aligned
-                     mutate(lat = lat / 20), 
-                    
-                        montlhy_pml   |>
+                      mutate(
+                        lat = ifelse(lat < 0,as.integer(20*lat + 1),as.integer(20*lat +2 ))) |> # so they are aligned
+                      mutate(lat = lat / 20),
+
+                    montlhy_pml   |>
                       mutate(year = year(date)) |>
                       filter(year > 1996) |>
-                          unnest(data) |>
+                      unnest(data) |>
                       select(year,aet,lat,lon) ,
-                    
-                        montlhy_fluxcom   |>
+
+                    montlhy_fluxcom   |>
                       mutate(year = year(date)) |>
                       filter(year > 1996) |>
-                          unnest(data) |>
+                      unnest(data) |>
                       mutate(aet = aet * 365/12) |>
-                      select(year,aet,lat,lon) 
-                    ) |>
+                      select(year,aet,lat,lon)) |>
   group_by(year,lon,lat) |>
   summarise(aet = sum(aet,na.rm = T)) |>
   group_by(lat) |>
@@ -357,16 +129,13 @@ mean_model <- rbind(monthly_era5  |>
     q_66 = quantile(aet,0.66,na.rm=T)) |>
   mutate(Setup = "mean_model")
 
-
-df <- rbind(p_model2,mean_model)
-
+df <- rbind(monthly_Pmodel,mean_model)
 
 
-ggplot(df) +
+
+lat_profile <- ggplot(df) +
   geom_line( aes(x = lat,y = med,color = Setup),size = 0.9) +
   geom_ribbon(aes(x = lat,ymin = q_33,ymax = q_66,fill = Setup ), alpha = 0.3) +
-  # geom_line(data = monthly_era5, aes(x = lat,y = med,color = Setup),size = 0.9) +
-  # geom_ribbon(data = monthly_era5, aes(x = lat,ymin = q_0.25,ymax = q_0.75,fill = Setup ), alpha = 0.3) +
   scale_color_manual(
     values = c(
       "mean_model" = "black",
@@ -392,70 +161,21 @@ ggplot(df) +
     panel.grid.major.x = element_line()
   ) + coord_flip() + theme(aspect.ratio = 1.5)
 
+rm(df, mean_model, monthly_era5, montlhy_fluxcom, montlhy_pml, monthly_Pmodel)
+gc()
 
-plot_1 <- ggplot(df) +
-  geom_line( aes(x = lat,y = med,color = Setup),size = 0.9) +
-  geom_ribbon(aes(x = lat,ymin = q_33,ymax = q_66,fill = Setup ), alpha = 0.3) +
-  # geom_line(data = monthly_era5, aes(x = lat,y = med,color = Setup),size = 0.9) +
-  # geom_ribbon(data = monthly_era5, aes(x = lat,ymin = q_0.25,ymax = q_0.75,fill = Setup ), alpha = 0.3) +
-  scale_color_manual(
-    values = c(
-      "mean_model" = "black",
-      "P_model" = "royalblue"
-    ),
-    name = "Model"
-  ) +
-  scale_fill_manual(
-    values = c(
-      "mean_model" = "black",
-      "P_model" = "royalblue"
-    ),
-    name = "Model") +
-  scale_x_continuous(
-    expand = c(0,0)
-  ) +
-  scale_y_continuous(
-    expand = c(0,0)
-  ) +
-  theme_classic() +
-  theme(
-    panel.grid.major.y = element_line(),
-    panel.grid.major.x = element_line()
-  ) + coord_flip() + theme(aspect.ratio = 1.5)
+# world map for P model
 
-map_world <- rbind(monthly_era5  |>
-                      filter(year(date) > 1996) |>
-                      unnest(data) |>
-                      select(date,aet,lat,lon) |>
-                      filter(lat > -60) |>
-                      mutate(aet = aet *365/12,
-                             lat = ifelse(lat < 0,as.integer(20*lat + 1),as.integer(20*lat +2 )),
-                             lon = ifelse(lon < 0,as.integer(20*lon -1),as.integer(20*lon))
-                             ) |> # so they are aligned
-                      mutate(lat = lat / 20,
-                             lon = lon / 20
-                             ), 
-                    
-                    montlhy_pml   |>
-                      filter(year(date) > 1996) |>
-                      unnest(data) |>
-                      select(date,aet,lat,lon) ,
-                    
-                    montlhy_fluxcom   |>
-                      filter(year(date) > 1996) |>
-                      unnest(data) |>
-                      mutate(aet = aet *365/12)|>
-                      select(date,aet,lat,lon) 
-                   )|>
-  group_by(year(date),lat,lon) |>
-  summarise(aet = sum(aet,na.rm=T)/3) |> # 3 is the number of model
-  group_by(lat,lon) |>
-  summarise(aet = mean(aet,na.rm=T))
+map_world <- p_model |>
+  unnest(data) |>
+  dplyr::select(date,aet,lat,lon) |>
+  filter(lat > -60) |>
+  group_by(year(date),lon,lat) |>
+  summarise(aet = sum(aet,na.rm = T)) |>
+  group_by(lon,lat) |>
+  summarise(aet = mean(aet,na.rm = T))
 
 
-
-
-library(scico)
 
 find_closest_color <- function(value, palette) {
   palette_values <- seq(0, 1, length.out = length(palette))  # Scale palette values
@@ -468,7 +188,7 @@ lapaz <- scico_palette_data("lapaz")
 lapaz_i <- NULL
 
 for(i in 256:1){
-  
+
   tmp <- lapaz[i,]
   lapaz_i <- rbind(lapaz_i,tmp)
 }
@@ -482,11 +202,11 @@ map_world$hex <-  sapply(map_world$norm, find_closest_color, palette = lapaz_i$h
 
 breaks <- seq(0,1530, 150)
 
-source("../my_stuff/global_legend.R")
+source("./R/global_legend.R")
 
 # get coast outlines
 layer_coast <- rnaturalearth::ne_coastline(
-  scale = 110, 
+  scale = 110,
   returnclass = "sf"
 )
 
@@ -500,8 +220,8 @@ layer_ocean <- rnaturalearth::ne_download(
 )
 
 
-ggmap <- ggplot() + 
-  geom_raster(data =multi_year, aes(x = lon, y = lat, fill = hex)) + scale_fill_identity() +
+ggmap <- ggplot() +
+  geom_raster(data =map_world, aes(x = lon, y = lat, fill = hex)) + scale_fill_identity() +
   geom_sf(
     data = layer_ocean,
     color = NA,
@@ -533,7 +253,375 @@ gglegend <- plot_discrete_cbar(
 
 global_merged <- cowplot::plot_grid(ggmap, gglegend, ncol = 2, rel_widths = c(1, 0.10))
 
+print(global_merged)
 
-ggsave(plot = global_merged, paste0("../my_stuff/global.pdf"),device = "pdf", dpi = 300, width = 16.5, height = 7)
-ggsave(plot = global_merged, paste0("../my_stuff/global.png"), dpi = 300, width = 21, height = 7)
+rm(map_world,lapaz,lapaz_i,gglegend,ggmap,global_merged,layer_coast,layer_ocean,tmp,breaks,i,plot_discrete_cbar,find_closest_color)
+gc()
 
+# plot performance against fluxnet
+
+driver <- read_rds("data/fluxnet/rsofun_driver_data_v3.4.2.rds")
+fdk_site_info <- read_csv("data/fluxnet/fdk_site_info.csv")
+
+# data quality filter info
+fdk_filter <-  read_csv("data/fluxnet/fdk_site_fullyearsequence.csv")
+
+# exclude croplands and wetlands from evaluation
+fdk_site_info <- fdk_site_info[fdk_site_info$igbp_land_use != "CRO" &
+                                 fdk_site_info$igbp_land_use != "WET",]
+
+# apply good year sequence data quality filter for LE
+fdk_filter <- fdk_filter[fdk_filter$drop_le == "FALSE",]
+
+# exclude site outside time range (from 1996 to 2011)
+# the first tower starts in 1996, so only crop years after 2011
+
+fdk_filter <- fdk_filter[fdk_filter$year_start_le <= 2011,]
+
+fdk_filter$year_end_le <- ifelse(fdk_filter$year_end_le <= 2011, fdk_filter$year_end_le, 2011)
+
+
+# include only the longest series of consecutive good quality data
+
+driver <- driver[which(driver$sitename %in% fdk_site_info$sitename &
+                         driver$sitename %in% fdk_filter$sitename),]
+
+fdk_site_info <- fdk_site_info[which(fdk_site_info$sitename %in% driver$sitename),]
+
+fdk_filter <- fdk_filter[which(fdk_filter$sitename %in% fdk_site_info$sitename),]
+
+fdk_filter <- fdk_filter[duplicated(fdk_filter$sitename) == FALSE,]
+
+driver_forcing <- driver |>
+  dplyr::select(sitename, forcing) |>
+  unnest(cols = c(forcing))
+
+driver <- driver_forcing |>
+  left_join(
+    fdk_filter |>
+      dplyr::select(
+        sitename,
+        year_start = year_start_le,
+        year_end = year_end_le),
+    by = join_by(sitename)
+  ) |>
+  mutate(year = year(date)) |>
+  filter(year >= year_start & year <= year_end) |>
+  dplyr::select(-year_start, -year_end, -year) |>
+  group_by(sitename) |>
+  nest() |>
+  left_join(
+    driver |>
+      dplyr::select(
+        sitename,
+        site_info,
+        params_siml
+      ),
+    by = join_by(sitename)
+  ) |>
+  rename(forcing = data) |>
+  dplyr::select(sitename, params_siml, site_info, forcing) |>
+  ungroup()
+
+# transformation from le to ET
+
+# Weird BUG: CWD don't load the function
+# I copy from the package
+
+calc_enthalpy_vap <- function (tc)
+{
+  enthalpy_vap <- 1918460 * ((tc + 273.15)/(tc + 273.15 -
+                                              33.91))^2
+  return(enthalpy_vap)
+}
+
+
+calc_density_h2o <- function (tc, press)
+{
+  po <- 0.99983952
+  +6.78826e-05 * tc
+  -9.08659e-06 * tc * tc
+  +1.02213e-07 * tc * tc * tc
+  -1.35439e-09 * tc * tc * tc * tc
+  +1.47115e-11 * tc * tc * tc * tc * tc
+  -1.11663e-13 * tc * tc * tc * tc * tc * tc
+  +5.04407e-16 * tc * tc * tc * tc * tc * tc * tc
+  -1.00659e-18 * tc * tc * tc * tc * tc * tc * tc * tc
+  ko <- 19652.17
+  +148.183 * tc
+  -2.29995 * tc * tc
+  +0.01281 * tc * tc * tc
+  -4.91564e-05 * tc * tc * tc * tc
+  +1.03553e-07 * tc * tc * tc * tc * tc
+  ca <- 3.26138
+  +0.0005223 * tc
+  +0.0001324 * tc * tc
+  -7.655e-07 * tc * tc * tc
+  +8.584e-10 * tc * tc * tc * tc
+  cb <- 7.2061e-05
+  -5.8948e-06 * tc
+  +8.699e-08 * tc * tc
+  -1.01e-09 * tc * tc * tc
+  +4.322e-12 * tc * tc * tc * tc
+  pbar <- (1e-05) * press
+  density_h2o <- 1000 * po * (ko + ca * pbar + cb * pbar^2)/(ko +
+                                                               ca * pbar + cb * pbar^2 - pbar)
+  return(density_h2o)
+}
+
+# convert le to ET
+
+le_to_et <- function(df){
+  1000 * 60 * 60 * 24 * df$le / (calc_enthalpy_vap(df$temp) * calc_density_h2o(df$temp, df$patm))
+}
+
+# convert rain from second to rain
+filter <- driver |>
+  unnest(forcing) |>
+  dplyr::select(sitename,le,temp,patm,rain) |>
+  mutate(rain = rain * 60 * 60 * 24 )
+
+filter$et <- le_to_et(filter)
+
+filter <- filter |>
+  group_by(sitename) |>
+  summarise(rain = sum(rain,na.rm = T),
+            et = sum(et,na.rm = T)) |>
+  mutate(to_drop = ifelse(et > rain,T,F))
+
+filter <- filter |> filter(to_drop == F)
+
+driver <- driver[driver$sitename %in% filter$sitename,]
+
+fdk_site_info <- fdk_site_info[fdk_site_info$sitename %in% driver$sitename,]
+
+
+driver <- driver |>
+  unnest(forcing) |>
+  unnest(site_info) |>
+  mutate(aet = 1000 * 60 * 60 * 24 * le / (calc_enthalpy_vap(temp) * calc_density_h2o(temp, patm))) |>
+  select(sitename,lat,lon,date,aet)
+
+driver_2 <- driver |>
+  group_by(sitename,year(date),month(date)) |>
+  summarise(aet = sum(aet, na.rm = T))
+
+driver <- left_join(driver_2,driver[duplicated(driver$sitename) == FALSE,] |> select(sitename,lat,lon), by = "sitename")
+
+rm(driver_2,driver_forcing,filter,calc_density_h2o,calc_enthalpy_vap,le_to_et)
+
+# reframe p_model from date to coordinate (may be used to generate nc file)
+
+p_model <- p_model |>
+  filter(year(date) >= 1997) |>
+  unnest(data) |>
+  group_by(lat, lon) |>
+  summarise(data = list(tibble(date = date, aet = aet)), .groups = "drop")
+
+
+# Convert both datasets to sf objects
+p_model_sf <- st_as_sf(p_model, coords = c("lon", "lat"), crs = 4326)
+fdk_sf <- st_as_sf(fdk_site_info, coords = c("lon", "lat"), crs = 4326)
+
+# Find index of nearest p_model grid cell for each site
+nearest_idx <- st_nearest_feature(fdk_sf, p_model_sf)
+
+model_sites <- fdk_site_info %>%
+  mutate(model_data = p_model$data[nearest_idx])
+
+model_long <- model_sites %>%
+  select(sitename, lat, lon, model_data) %>%
+  unnest(model_data) %>%
+  rename(global_p_model_aet = aet)
+
+driver_prepared <- driver %>%
+  mutate(
+    date = as.Date(sprintf("%d-%02d-01", `year(date)`, `month(date)`))
+  ) %>%
+  select(sitename, date, aet) |>
+  rename(obs_aet = aet)
+
+aet_comparison <- model_long %>%
+  inner_join(driver_prepared, by = c("sitename", "date"))
+
+aet_comparison <- aet_comparison %>%
+  select(sitename, date, global_p_model_aet, obs_aet, lat, lon)
+
+rm(p_model,p_model_sf)
+gc()
+
+print(aet_comparison)
+
+# do the same for the other model
+
+
+monthly_era5 <- read_rds("./data/global/monthly_era5.rds")
+
+monthly_era5 <- monthly_era5 |>
+  filter(year(date) >= 1997) |>
+  unnest(data) |>
+  group_by(lat, lon) |>
+  summarise(data = list(tibble(date = date, aet = aet)), .groups = "drop")
+
+monthly_era5_sf <- st_as_sf(monthly_era5, coords = c("lon", "lat"), crs = 4326)
+
+nearest_idx <- st_nearest_feature(fdk_sf, monthly_era5_sf)
+
+model_sites <- fdk_site_info %>%
+  mutate(model_data = monthly_era5$data[nearest_idx])
+
+model_long <- model_sites %>%
+  select(sitename, lat, lon, model_data) %>%
+  unnest(model_data) %>%
+  mutate(aet = aet * 365/12) |>
+  rename(era5_aet = aet)
+
+aet_comparison <- left_join(aet_comparison ,
+                            model_long |> select(sitename,date,era5_aet),
+                            by = c("sitename","date"))
+
+rm(monthly_era5,monthly_era5_sf)
+gc()
+
+
+montlhy_pml <- read_rds("./data/global/montlhy_pml.rds")
+
+montlhy_pml <- montlhy_pml |>
+  filter(year(date) >= 1997) |>
+  unnest(data) |>
+  group_by(lat, lon) |>
+  summarise(data = list(tibble(date = date, aet = aet)), .groups = "drop")
+
+montlhy_pml_sf <- st_as_sf(montlhy_pml, coords = c("lon", "lat"), crs = 4326)
+
+nearest_idx <- st_nearest_feature(fdk_sf, montlhy_pml_sf)
+
+model_sites <- fdk_site_info %>%
+  mutate(model_data = montlhy_pml$data[nearest_idx])
+
+model_long <- model_sites %>%
+  select(sitename, lat, lon, model_data) %>%
+  unnest(model_data) %>%
+  rename(pml_aet = aet)
+
+aet_comparison <- left_join(aet_comparison ,
+                            model_long |> select(sitename,date,pml_aet),
+                            by = c("sitename","date"))
+
+rm(montlhy_pml,montlhy_pml_sf)
+gc()
+
+montlhy_fluxcom <- read_rds("./data/global/montlhy_fluxcom.rds")
+
+montlhy_fluxcom <- montlhy_fluxcom |>
+  filter(year(date) >= 1997) |>
+  unnest(data) |>
+  group_by(lat, lon) |>
+  summarise(data = list(tibble(date = date, aet = aet)), .groups = "drop")
+
+montlhy_fluxcom_sf <- st_as_sf(montlhy_fluxcom, coords = c("lon", "lat"), crs = 4326)
+
+nearest_idx <- st_nearest_feature(fdk_sf, montlhy_fluxcom_sf)
+
+model_sites <- fdk_site_info %>%
+  mutate(model_data = montlhy_fluxcom$data[nearest_idx])
+
+model_long <- model_sites %>%
+  select(sitename, lat, lon, model_data) %>%
+  unnest(model_data) %>%
+  mutate(aet = aet * 365/12) |>
+  rename(flx_aet = aet)
+
+aet_comparison <- left_join(aet_comparison ,
+                            model_long |> select(sitename,date,flx_aet),
+                            by = c("sitename","date"))
+
+rm(montlhy_fluxcom,montlhy_fluxcom_sf)
+gc()
+
+corr_plot <- aet_comparison |>
+  group_by(sitename) |>
+  summarise(p_model = cor(global_p_model_aet, obs_aet, use = "complete.obs")^2,
+            pml = cor(pml_aet, obs_aet, use = "complete.obs")^2,
+            fluxcom = cor(flx_aet, obs_aet, use = "complete.obs")^2,
+            era5 = cor(era5_aet, obs_aet, use = "complete.obs")^2
+  )
+
+rmse_comparison <- aet_comparison |>
+  group_by(sitename) |>
+  summarise(p_model = mean(sqrt((global_p_model_aet - obs_aet)^2)),
+            pml = mean(sqrt((pml_aet - obs_aet)^2)),
+            fluxcom = mean(sqrt((flx_aet - obs_aet)^2)),
+            era5 = mean(sqrt((era5_aet - obs_aet)^2)))
+
+rmse_plot <- aet_comparison |>
+  mutate(p_model = sqrt((global_p_model_aet - obs_aet)^2),
+            pml = sqrt((pml_aet - obs_aet)^2),
+            fluxcom = sqrt((flx_aet - obs_aet)^2),
+            era5 = sqrt((era5_aet - obs_aet)^2)) |>
+  select(sitename,p_model,pml,fluxcom,era5)
+
+# bonus plot, bias across models
+
+plot_1 <- ggplot(rmse_comparison, aes(x = p_model, y = pml)) + geom_point() +
+  geom_abline(slope = 1, intercept = 0,  linetype = "dotted") +
+  xlim(0,80) + ylim(0,80)
+
+plot_2 <- ggplot(rmse_comparison, aes(x = p_model, y = fluxcom)) + geom_point() +
+  geom_abline(slope = 1, intercept = 0,  linetype = "dotted") +
+  xlim(0,80) + ylim(0,80)
+
+plot_3 <- ggplot(rmse_comparison, aes(x = p_model, y = era5)) + geom_point() +
+  geom_abline(slope = 1, intercept = 0,  linetype = "dotted") +
+  xlim(0,80) + ylim(0,80)
+
+plot_4 <- ggplot(corr_plot, aes(x = p_model, y = pml)) + geom_point() +
+  geom_abline(slope = 1, intercept = 0,  linetype = "dotted") +
+  xlim(0,1) + ylim(0,1)
+
+plot_5 <- ggplot(corr_plot, aes(x = p_model, y = fluxcom)) + geom_point() +
+  geom_abline(slope = 1, intercept = 0,  linetype = "dotted") +
+  xlim(0,1) + ylim(0,1)
+
+plot_6 <- ggplot(corr_plot, aes(x = p_model, y = era5)) + geom_point() +
+  geom_abline(slope = 1, intercept = 0,  linetype = "dotted") +
+  xlim(0,1) + ylim(0,1)
+
+plot_grid(plot_1,plot_2,plot_3,
+          plot_4,plot_5,plot_6,
+          ncol = 3)
+
+rmse_long <- rmse_plot %>%
+  select(-sitename) %>%           # remove sitename
+  pivot_longer(
+    cols = everything(),          # pivot all remaining columns
+    names_to = "model",           # new column for model names
+    values_to = "rmse"            # new column for RMSE values
+  )
+
+rmse_plot <- ggplot(rmse_long,aes(x = model, y = rmse)) + geom_boxplot() +
+  ylab( expression( paste("RMSE (mm m"^-1, ")" ))) +
+  scale_x_discrete(
+    limits = c("p_model","pml","fluxcom","era5")
+  ) + theme(aspect.ratio = 1.5)
+
+cor_long <- corr_plot %>%
+  select(-sitename) %>%           # remove sitename
+  pivot_longer(
+    cols = everything(),          # pivot all remaining columns
+    names_to = "model",           # new column for model names
+    values_to = "corr"            # new column for RMSE values
+  )
+
+corr_plot <- ggplot(cor_long,aes(x = model, y = corr)) + geom_boxplot() +
+  ylab("correlation") +
+  scale_x_discrete(
+    limits = c("p_model","pml","fluxcom","era5")
+  ) + theme(aspect.ratio = 1.5)
+
+plot_comb <- plot_grid(lat_profile, rmse_plot, corr_plot,ncol = 3, labels = letters[1:3])
+
+scaling_factor = 1.5
+
+ggsave(plot = plot_comb, paste0("./fig/","global_comparison.pdf"),device = "pdf", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor) # reduce size
+ggsave(plot = plot_comb, paste0("./fig/","global_comparison.png"), dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor) # reduce size

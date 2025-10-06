@@ -32,7 +32,7 @@ scaling_factor <- 1.5
 set.seed(42)
 
 # model forcing data
-driver <- read_rds("data/fluxnet/rsofun_driver_data_v3.4.2.rds") # currently only on workstation
+driver <- read_rds("data/fluxnet/rsofun_driver_data_v3.4.2.rds")
 
 # site meta info
 fdk_site_info <- read_csv("data/fluxnet/fdk_site_info.csv")

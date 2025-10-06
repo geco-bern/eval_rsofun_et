@@ -166,7 +166,7 @@ mean_climates <- df_budyko |>
             )
 
 ggplot() +
-  geom_abline(slope = 1, intercept = 0, , linetype = "dotted") +
+  geom_abline(slope = 1, intercept = 0,  linetype = "dotted") +
   geom_hline(yintercept = 1, , linetype = "dotted") +
   geom_point(data = df_budyko , aes(x = pet / rain_2, y = mod_aet / rain_2), size = 1)
 

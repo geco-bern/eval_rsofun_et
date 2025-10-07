@@ -6,7 +6,9 @@ library(rsofun)
 library(readr)
 library(tictoc)
 library(terra)
+library(cowplot)
 library(scico)
+library(viridis)
 library(maps)
 library(sf) # only used to plot
 
@@ -19,6 +21,18 @@ source("./R/eval_droughtresponse.R")
 source("./R/heatscatter_dependencies.R")
 source("./R/create_obs_eval.R")
 source("./R/global_legend.R")
+
+scaling_factor <- 1.1
+
+theme_set(
+  theme_minimal(base_size = 10) +
+    theme(
+      axis.title  = element_text(size = 10),
+      axis.text   = element_text(size = 10),
+      legend.title = element_text(size = 10),
+      legend.text  = element_text(size = 10)
+    )
+)
 
 
 driver_data <- readRDS("./data/camels/camels_driver.rds")
@@ -155,30 +169,86 @@ df_budyko <- left_join(df_budyko,
                        max_climates |> select(sitename, koeppen_code),
                        by = "sitename")
 
+
 mean_climates <- df_budyko |>
   group_by(koeppen_code) |>
   mutate(n = n()) |>
-  summarise(mod_aet = mean(mod_aet),
-            obs_aet = mean(obs_aet),
-            rain = mean(rain),
-            pet = mean(pet),
-            n = mean(n)
-            )
+  summarise(
+    mod_aet = mean(mod_aet, na.rm = TRUE),
+    obs_aet = mean(obs_aet, na.rm = TRUE),
+    rain = mean(rain, na.rm = TRUE),
+    pet  = mean(pet, na.rm = TRUE),
+    n    = mean(n)
+  ) |>
+  filter(n > 4) |>
+  pivot_longer(
+    cols = c(mod_aet, obs_aet),
+    names_to = "source",
+    values_to = "aet"
+  )
 
-ggplot() +
+
+plot_1 <- ggplot() +
   geom_abline(slope = 1, intercept = 0,  linetype = "dotted") +
   geom_hline(yintercept = 1, , linetype = "dotted") +
-  geom_point(data = df_budyko , aes(x = pet / rain_2, y = mod_aet / rain_2), size = 1)
+  geom_point(data = df_budyko , aes(x = pet / rain, y = mod_aet / rain), size = 1) +
+  ylab("AET / precipitation") + xlab("PET / precipitation") + ylim(0,1.2) + xlim(0,10) +
+  theme(aspect.ratio = 1)
 
-ggplot() +
+plot_2 <- ggplot() +
   geom_abline(slope = 1, intercept = 0, , linetype = "dotted") +
   geom_hline(yintercept = 1, , linetype = "dotted") +
-  geom_point(data = df_budyko , aes(x = pet / rain_2, y = obs_aet / rain_2), size = 1)
+  geom_point(data = df_budyko , aes(x = pet / rain, y = obs_aet / rain), size = 1) +
+  ylab("AET / precipitation") + xlab("PET / precipitation") + ylim(0,1.2) + xlim(0,10) +
+  theme(aspect.ratio = 1)
 
-ggplot() +
-  geom_abline(slope = 1, intercept = 0, , linetype = "dotted") +
-  geom_hline(yintercept = 1, , linetype = "dotted") +
-  geom_point(data = mean_climates , aes(x = pet / rain, y = obs_aet / rain), size = 1)
+
+plot_3 <- ggplot() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
+  geom_hline(yintercept = 1, linetype = "dotted") +
+  geom_point(
+    data = mean_climates,
+    aes(
+      x = pet / rain,
+      y = aet / rain,
+      shape = source,
+      color = koeppen_code
+    ),
+    size = 2
+  )  +
+  scale_shape_manual(
+    name = "Data Type",
+    labels = c("Modelled", "Observed"),
+    values = c(16, 17)# shapes: 16 = circle, 17 = triangle
+  )+
+  scale_color_viridis_d(
+    option = "C",  # one between C D or E
+    name = "Climate"
+  ) +
+  ylab("AET / precipitation") +
+  xlab("PET / precipitation") +
+  coord_cartesian(xlim = c(0, 4), ylim = c(0, 1.2)) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    aspect.ratio = 1
+  )
+
+legend_plot <- cowplot::get_legend(plot_3)
+
+plot_3_nolegend <- plot_3 + theme(legend.position = "none")
+
+budyko_plot <- plot_grid(plot_1,plot_2,plot_3_nolegend,ncol = 3, labels = letters[1:3],label_y = 1)
+print(budyko_plot)
+
+# add legend separately
+
+budyko_plot_2 <- plot_grid(budyko_plot,legend_plot,ncol = 2, rel_widths = c(1, 0.05), align = "hv")
+
+print(budyko_plot_2)
+
+ggsave(plot = budyko_plot_2, paste0("./fig/","budyko_merged.pdf"),device = "pdf", dpi = 300, width = 21 * scaling_factor , height = 7 *scaling_factor)
+
 
 # global map
 

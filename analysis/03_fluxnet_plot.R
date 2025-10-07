@@ -26,7 +26,18 @@ source("R/heatscatter_dependencies.R")
 source("R/create_obs_eval.R")
 
 # used to reduce the image size
-scaling_factor <- 1.5
+scaling_factor <- 2
+
+theme_set(
+  theme_minimal(base_size = 10) +
+    theme(
+      axis.title  = element_text(size = 10),
+      axis.text   = element_text(size = 10),
+      legend.title = element_text(size = 10),
+      legend.text  = element_text(size = 10)
+    )
+)
+
 
 # Set seed
 set.seed(42)
@@ -414,6 +425,12 @@ so_fun_analysis <- function(out_dir, prefix){
   climates <-  out_eval$aet$fluxnet$data$meandoydf_byclim_stats %>%
     dplyr::filter(climatezone != "- north")
 
+  metrics_by_site <- out_eval$aet$fluxnet$data$metric_by_site
+
+  write_csv(metrics_by_site, paste0("./out_csv/",prefix,"site_by_site_metrics.csv"))
+
+  write_csv(climates, paste0("./out_csv/",prefix,"climates_metrics.csv"))
+
   metrics_rsq <- climates |>
     group_by(climatezone) |>
     summarise(rsq = mean(rsq),
@@ -438,10 +455,6 @@ so_fun_analysis <- function(out_dir, prefix){
 
   climates_aet_all <- out_eval$aet$fluxnet$data$meandoydf_byclim %>%
     dplyr::filter(climatezone %in%  unique(out_eval$aet$fluxnet$data$meandoydf_byclim$climatezone)
-
-                  # "Aw south", "Bsk north", "Cfa north",
-                  # "Cfb north", "Cfb south", "ET north",
-                  # "Csb north", "Dfb north", "Dfc north"
 
     ) %>%
     dplyr::filter(koeppen_code != "-") %>%
@@ -482,10 +495,9 @@ so_fun_analysis <- function(out_dir, prefix){
 
 
   climates_aet <- out_eval$aet$fluxnet$data$meandoydf_byclim %>%
+
     dplyr::filter(climatezone %in%
-                  c("Csb north", "Csa north", "ET north",
-                  "Dfb north", "Dsa north", "Af north",
-                  "Aw south", "Cfb north", "Bsh south")
+                  c("Csb north","Dfb north", "Cfb north", "Bsh south")
 
     ) %>%
     dplyr::filter(koeppen_code != "-") %>%
@@ -505,23 +517,23 @@ so_fun_analysis <- function(out_dir, prefix){
          x = "DOY") +
     ylim(0,8.5) +
     facet_wrap( ~climatezone ) +
-    geom_text(
-      data = metrics_rsq |> dplyr::filter(
-        climatezone %in% c("Csb north", "Csa north", "ET north",
-                           "Dfb north", "Dsa north", "Af north",
-                           "Aw south", "Cfb north", "Bsh south")
-      ),
-      aes(x = x_pos, y = y_pos, label = label),
-      parse = TRUE,
-      size = 4.5,
-      hjust = 1
-    ) +
-    geom_text(data = metrics_rmse |> dplyr::filter(climatezone %in%
-                                                     c("Csb north", "Csa north", "ET north",
-                                                       "Dfb north", "Dsa north", "Af north",
-                                                       "Aw south", "Cfb north", "Bsh south")
-                                                   ),
-              aes(x = x_pos, y = y_pos, label = rmse), size = 4.5, hjust = 1) +
+    # geom_text(
+    #   data = metrics_rsq |> dplyr::filter(
+    #     climatezone %in% c("Csb north", "Csa north", "ET north",
+    #                        "Dfb north", "Dsa north", "Af north",
+    #                        "Aw south", "Cfb north", "Bsh south")
+    #   ),
+    #   aes(x = x_pos, y = y_pos, label = label),
+    #   parse = TRUE,
+    #   size = 4.5,
+    #   hjust = 1
+    # ) +
+    # geom_text(data = metrics_rmse |> dplyr::filter(climatezone %in%
+    #                                                  c("Csb north", "Csa north", "ET north",
+    #                                                    "Dfb north", "Dsa north", "Af north",
+    #                                                    "Aw south", "Cfb north", "Bsh south")
+    #                                                ),
+    #           aes(x = x_pos, y = y_pos, label = rmse), size = 4.5, hjust = 1) +
     theme_gray() +
     theme(legend.position = "bottom",
           strip.text = element_text(size = 14)) +
@@ -855,9 +867,9 @@ legend <- get_legend(PT[[6]])
 
 
 climates_aet <- plot_grid(PT[[6]] + xlab(NULL) + theme(legend.position = "none"),PM[[6]] + xlab(NULL)+ theme(legend.position = "none"),
-                          PM_S0[[6]]+  theme(legend.position = "none",legend),ncol = 1, labels = letters[1:3])
+                          PM_S0[[6]]+  theme(legend.position = "none",legend),ncol = 3, labels = letters[1:3])
 
-ggsave(plot = climates_aet, paste0("./fig/","climates_aet_merged.pdf"),device = "pdf", dpi = 300, width = 7 / scaling_factor, height = 21 / scaling_factor)
+ggsave(plot = climates_aet, paste0("./fig/","climates_aet_merged.pdf"),device = "pdf", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)
 
 
 drought_aet <- plot_grid(PT[[7]]+ ylim(-1.5,0.8) ,PM[[7]] + ylim(-1.5,0.8), PM_S0[[7]]+ ylim(-1.5,0.8) ,ncol = 3, labels = letters[1:3])

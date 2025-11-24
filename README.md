@@ -6,10 +6,10 @@ This repository serves to create the figures for my manuscript.
 
 ## Table of Contents
 - [Repository Structure](#repository-structure)
-  - [analysis/](#analysis)
-  - [R/](#r)
-  - [fig/](#fig)
-  - [data-raw/](#data-raw)
+  - [analysis](#analysis)
+  - [R](#r)
+  - [fig](#fig)
+  - [data-raw](#data-raw)
 
 ---
 

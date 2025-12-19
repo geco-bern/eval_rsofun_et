@@ -1,6 +1,6 @@
-# Rsofun Phydro Branch Evaluation
+# Evaluation of simulated ET from rsofun
 
-This repository serves to create the figures for my manuscript.  
+This repository implements the analysis of Grossi et al. (in prep.).
 
 ---
 
@@ -16,6 +16,7 @@ This repository serves to create the figures for my manuscript.
 ## Repository Structure
 
 ### analysis/
+
 Contains the scripts to create the figures.  
 These are divided by spatial extent:  
 - **Fluxnet-scale simulation**  
@@ -29,15 +30,18 @@ Scripts ending with `*_plot.R` can be run immediately.
 ---
 
 ### R/
+
 Contains the new **SoFunCalVal** scripts, including the **CAMELS yearly evaluation**.  
 
 ---
 
 ### fig/
+
 Output figures are saved here.  
 
 ---
 
 ### data-raw/
+
 Contains the scripts used to generate the data inside the `data/` folder.  
 These scripts won’t work directly, since the data are only available on the workstation.  

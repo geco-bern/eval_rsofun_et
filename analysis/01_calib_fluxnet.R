@@ -5,7 +5,7 @@ library(tidyr)
 library(readr)
 library(lubridate)
 library(purrr)
-library(remotes)
+# library(remotes)
 library(terra)
 library(rsofun)
 library(here)
@@ -133,17 +133,17 @@ driver_pm <- driver_pm |>
 write_rds(driver_pm, file = here("data/driver_pm.rds"))
 
 # Run the calibration for GPP data
-# calib_output <- calib_sofun(
-#   drivers = driver_pm,
-#   obs = evaluation,
-#   settings = settings,
-#   # extra arguments for the cost function
-#   par_fixed = params_fix,
-#   targets = c("gpp", "le")
-# )
-#
-# write_rds(calib_output, here("data/calib_output_pm.rds"))
-# # write_rds(calib_output, here("data/global_calib_PM_old_WHC_no_beta.rds"))
+calib_output <- calib_sofun(
+  drivers = driver_pm,
+  obs = evaluation,
+  settings = settings,
+  # extra arguments for the cost function
+  par_fixed = params_fix,
+  targets = c("gpp", "le")
+)
+
+write_rds(calib_output, here("data/calib_output_pm.rds"))
+# write_rds(calib_output, here("data/global_calib_PM_old_WHC_no_beta.rds"))
 
 ## Setup PT --------------------------------------------------------------------
 driver_pm <- read_rds(here("data/driver_pm.rds"))
@@ -162,13 +162,14 @@ driver_pt <- driver_pm |>
 write_rds(driver_pt, file = here("data/driver_pt.rds"))
 
 # Run the calibration for GPP data
-# calib_output <- calib_sofun(
-#   drivers = driver_pt,
-#   obs = evaluation,
-#   settings = settings,
-#   # extra arguments for the cost function
-#   par_fixed = params_fix,
-#   targets = c("gpp", "le")
-# )
-# write_rds(calib_output, here("data/calib_output_pt.rds"))
-# # write_rds(calib_output, "../my_stuff/global_calib_PT_no_beta.rds")
+calib_output <- calib_sofun(
+  drivers = driver_pt,
+  obs = evaluation,
+  settings = settings,
+  # extra arguments for the cost function
+  par_fixed = params_fix,
+  targets = c("gpp", "le")
+)
+
+write_rds(calib_output, here("data/calib_output_pt.rds"))
+# write_rds(calib_output, "../my_stuff/global_calib_PT_no_beta.rds")

@@ -13,15 +13,15 @@ source(here("R/create_table_latex.R"))
 
 ## Read external files ---------------------------------------------------------
 # These files are all part of the Zenodo release
-# driver <- read_rds("/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
-driver <- read_rds("~/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
+driver <- read_rds("/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
+# driver <- read_rds("~/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
 
-# fdk_site_info <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
-fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
+fdk_site_info <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
+# fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
 
 # data quality filter info
-# fdk_filter <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
-fdk_filter <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
+fdk_filter <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
+# fdk_filter <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
 
 ## Select sites ----------------------------------------------------------------
 # select sites based on minimum year availability (1), veg type filter, etc.

@@ -33,7 +33,7 @@ sites <- fdk_site_info |>
     by = "sitename"
   ) |>
   filter(!drop_gpp & !drop_le) |>  # where no full year sequence was found
-  filter(nyears_gpp >= 3, nyears_le >= 3)
+  filter(nyears_gpp >= 1, nyears_le >= 1)
 
 ## Select years ----------------------------------------------------------------
 # select years based on good-quality data sequences
@@ -149,19 +149,35 @@ gg_sitedensity <- ggplot() +
   # world country outlines
   geom_sf(data = world, fill = "gray95", color = "gray70", size = 0.2) +
 
+  # geom_point(
+  #   data = df_sites_metainfo,
+  #   mapping = aes(x = lon, y = lat),
+  #   size = 0.5,
+  #   color = "red"
+  # ) +
+
   # hex bin layer: count of points per hex
   stat_bin_hex(
     data = df_sites_metainfo,
-    mapping = aes(x = lon, y = lat),
+    mapping = aes(x = lon, y = lat, fill = after_stat(count)),
     bins = c(100, 70),
     color = NA,
     alpha = 0.9
   ) +
 
+  # # discrete-looking color scale
+  # scale_fill_stepsn(
+  #   name = "Sites\ncount",
+  #   colours = viridis::viridis(5, option = "D"),
+  #   breaks  = seq(0, 5),
+  #   # limits  = c(0, 100),
+  #   na.value = "transparent"
+  # ) +
+
   # color (count) scale
   scale_fill_viridis_c(
     name = "Sites\ncount",
-    option = "D",
+    option = "A",
     # trans = "sqrt",
     na.value = "transparent"
   ) +
@@ -179,16 +195,19 @@ gg_sitedensity <- ggplot() +
   ) +
   theme_minimal() +
   theme(
-    panel.grid = element_line(color = "gray90", linewidth = 0.2),
+    panel.grid = element_line(color = "gray90", size = 0.2),
     legend.position = "right"
   )
+
+gg_sitedensity
+
 
 # xxxxxxxxxxxxxxxx
 #
 # fdk_site_info <- fdk_site_info[fdk_site_info$igbp_land_use != "CRO" &
 #                                  fdk_site_info$igbp_land_use != "WET", ]
 #
-# ## GPP: Good year sequence filter -----------------------------------------------
+# ## GPP: Good year sequence filter
 # fdk_filter <- fdk_filter[fdk_filter$drop_gpp == "FALSE", ]
 #
 # driver <- driver[which(driver$sitename %in% fdk_site_info$sitename &
@@ -232,7 +251,7 @@ gg_sitedensity <- ggplot() +
 #   ungroup()
 #
 #
-# ## LE: Good year sequence filter -----------------------------------------------
+# ## LE: Good year sequence filter
 # fdk_filter <- fdk_filter[fdk_filter$drop_le == "FALSE", ]
 #
 # driver <- driver[which(driver$sitename %in% fdk_site_info$sitename &

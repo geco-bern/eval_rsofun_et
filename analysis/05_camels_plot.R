@@ -79,7 +79,7 @@ driver_data <- driver_data |> unnest(forcing) |>
 
 driver_data <- driver_data[driver_data$sitename %in% multi_year$sitename,]
 
-best_par <- readRDS("./data/fluxnet/global_calib_PM_S0.rds")
+best_par <- readRDS("./data/fluxnet/global_calib_PMS0.rds")
 
 params_modl <- list(
   kphio              =  best_par$par[["kphio"]],
@@ -124,20 +124,26 @@ out_eval <- eval_sofun(
   light = FALSE
 )
 
-out_eval$aet$camels$plot$gg_modobs_multi_annual
+plot_1_presentation <- out_eval$aet$camels$plot$gg_modobs_multi_annual
 
-out_eval$aet$camels$plot$gg_modobs_spatial_annual
+plot_2 <- out_eval$aet$camels$plot$gg_modobs_spatial_annual
 
 performace_site <- out_eval$aet$camels$data$iavdf_stats
 
 # histograms of slopes distribution
 
-ggplot(performace_site,aes(x = slope)) + geom_histogram(bins = 50, fill = "white", colour = "black") +
+plot_3 <- ggplot(performace_site,aes(x = slope)) + geom_histogram(bins = 50, fill = "white", colour = "black") +
   xlab("Slope of the fitted line") + geom_vline(xintercept = 1, color = "red", linetype = "dotted", size = 1)
 
 
+metrics_plot <- plot_grid(plot_1,plot_2,plot_3,ncol = 3, labels = letters[1:3])
+print(metrics_plot)
+
+ggsave(plot = metrics_plot, paste0("./fig/","metrics_plot.pdf"),device = "pdf", dpi = 300, width = 21 * scaling_factor , height = 7 *scaling_factor)
+
+ggsave(plot = metrics_plot, paste0("./fig/","metrics_plot.svg"),device = "svg", dpi = 300, width = 21 * scaling_factor , height = 7 *scaling_factor)
+
 # Budyko relationship
-# TODO: insert in script creation the climate extraction
 
 climates <- read_csv("./data/camels/long_koeppen_camels.csv")
 
@@ -188,19 +194,24 @@ mean_climates <- df_budyko |>
   )
 
 
-plot_1 <- ggplot() +
+plot_2_presentation <- ggplot() +
   geom_abline(slope = 1, intercept = 0,  linetype = "dotted") +
   geom_hline(yintercept = 1, , linetype = "dotted") +
   geom_point(data = df_budyko , aes(x = pet / rain, y = mod_aet / rain), size = 1) +
   ylab("AET / precipitation") + xlab("PET / precipitation") + ylim(0,1.2) + xlim(0,10) +
   theme(aspect.ratio = 1)
 
-plot_2 <- ggplot() +
+plot_3_presentation <- ggplot() +
   geom_abline(slope = 1, intercept = 0, , linetype = "dotted") +
   geom_hline(yintercept = 1, , linetype = "dotted") +
   geom_point(data = df_budyko , aes(x = pet / rain, y = obs_aet / rain), size = 1) +
   ylab("AET / precipitation") + xlab("PET / precipitation") + ylim(0,1.2) + xlim(0,10) +
   theme(aspect.ratio = 1)
+
+presentation_plot <- plot_grid(plot_2_presentation,plot_3_presentation,ncol = 2)
+ggsave(plot = presentation_plot, paste0("./fig/","budyko_presentation.svg"),device = "svg", dpi = 300, width = 14 * scaling_factor , height = 7 *scaling_factor)
+ggsave(plot = plot_1_presentation, paste0("./fig/","camels_metric.svg"),device = "svg", dpi = 300, width = 7 * scaling_factor , height = 7 *scaling_factor)
+
 
 
 plot_3 <- ggplot() +
@@ -248,6 +259,130 @@ budyko_plot_2 <- plot_grid(budyko_plot,legend_plot,ncol = 2, rel_widths = c(1, 0
 print(budyko_plot_2)
 
 ggsave(plot = budyko_plot_2, paste0("./fig/","budyko_merged.pdf"),device = "pdf", dpi = 300, width = 21 * scaling_factor , height = 7 *scaling_factor)
+
+ggsave(plot = budyko_plot_2, paste0("./fig/","budyko_merged.svg"),device = "svg", dpi = 300, width = 21 * scaling_factor , height = 7 *scaling_factor)
+
+
+# Budyko plot with transpiration instead of AET
+
+calc_enthalpy_vap <- function (tc)
+{
+  enthalpy_vap <- 1918460 * ((tc + 273.15)/(tc + 273.15 -
+                                              33.91))^2
+  return(enthalpy_vap)
+}
+
+
+calc_density_h2o <- function (tc, press)
+{
+  po <- 0.99983952
+  +6.78826e-05 * tc
+  -9.08659e-06 * tc * tc
+  +1.02213e-07 * tc * tc * tc
+  -1.35439e-09 * tc * tc * tc * tc
+  +1.47115e-11 * tc * tc * tc * tc * tc
+  -1.11663e-13 * tc * tc * tc * tc * tc * tc
+  +5.04407e-16 * tc * tc * tc * tc * tc * tc * tc
+  -1.00659e-18 * tc * tc * tc * tc * tc * tc * tc * tc
+  ko <- 19652.17
+  +148.183 * tc
+  -2.29995 * tc * tc
+  +0.01281 * tc * tc * tc
+  -4.91564e-05 * tc * tc * tc * tc
+  +1.03553e-07 * tc * tc * tc * tc * tc
+  ca <- 3.26138
+  +0.0005223 * tc
+  +0.0001324 * tc * tc
+  -7.655e-07 * tc * tc * tc
+  +8.584e-10 * tc * tc * tc * tc
+  cb <- 7.2061e-05
+  -5.8948e-06 * tc
+  +8.699e-08 * tc * tc
+  -1.01e-09 * tc * tc * tc
+  +4.322e-12 * tc * tc * tc * tc
+  pbar <- (1e-05) * press
+  density_h2o <- 1000 * po * (ko + ca * pbar + cb * pbar^2)/(ko +
+                                                               ca * pbar + cb * pbar^2 - pbar)
+  return(density_h2o)
+}
+
+le_to_et <- function(df){
+  1000 * df$le_canopy / (calc_enthalpy_vap(df$temp) * calc_density_h2o(df$temp, df$patm))
+}
+
+# * 60 * 60 * 24   * calc_density_h2o(df$temp, df$patm)
+transpiration <- output |>
+  unnest(data) |>
+  select(le_canopy)
+
+driver <- driver_data |>
+  unnest(forcing)
+
+driver$le_canopy <- transpiration$le_canopy
+
+et <-  le_to_et(driver)
+
+driver$et <- et
+
+driver <- driver |>
+  select(sitename,date,rain,et) |>
+  mutate(rain = rain * 24* 60 * 60)
+
+output2 <- output |>
+  unnest(data) |>
+  select(sitename, date, pet)
+
+df_budyko <- left_join(driver,output2, by = c("sitename","date")) |>
+  group_by(sitename, year(date)) |>
+  summarise(pet = sum(pet, na.rm = T),
+            aet = sum(et, na.rm = T),
+            rain = sum(rain, na.rm = T)) |>
+  group_by(sitename) |>
+  summarise(pet = mean(pet, na.rm = T),
+            aet = mean(aet, na.rm = T),
+            rain = mean(rain, na.rm = T))# |>
+  #mutate(aet = aet / 10000)
+
+df_budyko <- left_join(df_budyko,
+                       max_climates |> select(sitename, koeppen_code),
+                       by = "sitename")
+
+ggplot() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
+  geom_hline(yintercept = 1, linetype = "dotted") +
+  geom_point(
+    data = df_budyko,
+    aes(
+      x = pet / rain,
+      y = aet / rain,
+      color = koeppen_code
+    )) + ylim(0,1) +
+  scale_y_log10()
+
+
+ggplot() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
+  geom_hline(yintercept = 1, linetype = "dotted") +
+  geom_point(
+    data = df_budyko,
+    aes(
+      x = pet / rain,
+      y = aet / rain,
+      color = koeppen_code
+    )
+  ) +
+  scale_y_log10(
+    limits = c(0.01, 1),
+    breaks = c(0.05,0.1,0.2,0.3),
+    labels = c(0.05,0.1,0.2,0.3)
+  ) + theme_minimal()+
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(),
+    panel.grid.major.y = element_line()
+  )
+
+
 
 
 # global map
@@ -323,9 +458,12 @@ ggmap <- ggplot() +
 
 print(ggmap)
 
-global_merged <- cowplot::plot_grid(ggmap, gglegend, ncol = 2, rel_widths = c(1, 0.10))
+
+
+global_merged <- cowplot::plot_grid(ggmap, gglegend, ncol = 2, rel_widths = c(1, 0.23),axis = "lrtb")
 
 print(global_merged)
 
+ggsave(plot = global_merged, paste0("./fig/","camels_map.pdf"),device = "pdf",units  = "px", dpi = 300, width = 1707 /0.45, height = 829 /0.45)
 
-
+ggsave(plot = global_merged, paste0("./fig/","camels_map.svg"),device = "svg",units  = "px", dpi = 300, width = 1707 /0.45, height = 829 /0.45)

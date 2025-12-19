@@ -264,7 +264,7 @@ so_fun_analysis <- function(out_dir, prefix){
 
   # weekly aggreagates gpp
 
-  dailiy_gpp <- out_eval$gpp$fluxnet$plot$gg_modobs_xdaily + ggtitle(NULL)
+  dailiy_gpp <- out_eval$gpp$fluxnet$plot$gg_modobs_monthly + ggtitle(NULL)
   ggsave(plot = dailiy_gpp, paste0(out_dir,prefix,"daily_gpp.png"),dpi = 300)
 
   ## Mean seasonal cycle
@@ -273,7 +273,7 @@ so_fun_analysis <- function(out_dir, prefix){
   climates <-  out_eval$gpp$fluxnet$data$meandoydf_byclim_stats  %>%
     dplyr::filter(climatezone != "- north")
 
-  # getting the rsq and correlation for each climate
+  # getting the rsq and correlation for each climate<
   metrics_rsq <- climates |>
     group_by(climatezone) |>
     summarise(rsq = mean(rsq),
@@ -404,7 +404,7 @@ so_fun_analysis <- function(out_dir, prefix){
       x = "Days after drought onset",
       y = expression( paste( "Bias (g C m"^{-1}, " d"^{-1}, ")"))
     ) +
-    theme_classic() +
+    theme_minimal() +
     theme(
       panel.grid.major.y = element_line(),
       panel.grid.major.x = element_line()
@@ -470,7 +470,7 @@ so_fun_analysis <- function(out_dir, prefix){
       alpha = 0.2
     ) +
     geom_line(aes(x = doy, y = aet, color = source), size = 0.4) +
-    labs(y =  expression( paste("Simulated AET (mm d"^{-1}, ")" ) ),
+    labs(y =  expression( paste("Simulated AET (mm m"^-2, " d"^-1, ")" ) ),
          x = "DOY") +
     ylim(0,8.5) +
     facet_wrap( ~climatezone, ncol = 4 ) +
@@ -497,7 +497,10 @@ so_fun_analysis <- function(out_dir, prefix){
   climates_aet <- out_eval$aet$fluxnet$data$meandoydf_byclim %>%
 
     dplyr::filter(climatezone %in%
-                  c("Csb north","Dfb north", "Cfb north", "Bsh south")
+                  #c("Csb north","Dfb north", "Cfb north", "Bsh south")
+                    c("Csb north", "Csa north", "ET north",
+                      "Dfb north", "Dsa north", "Af north",
+                      "Aw south", "Cfb north", "Bsh south")
 
     ) %>%
     dplyr::filter(koeppen_code != "-") %>%
@@ -513,7 +516,7 @@ so_fun_analysis <- function(out_dir, prefix){
       alpha = 0.2
     ) +
     geom_line(aes(x = doy, y = aet, color = source), size = 0.4) +
-    labs(y =  expression( paste("Simulated AET (mm d"^{-1}, ")" ) ),
+    labs(y =  expression( paste("Simulated AET (mm m"^-2, " d"^-1, ")" ) ),
          x = "DOY") +
     ylim(0,8.5) +
     facet_wrap( ~climatezone ) +
@@ -610,9 +613,9 @@ so_fun_analysis <- function(out_dir, prefix){
     ) +
     labs(
       x = "Days after drought onset",
-      y = expression( paste( "Bias AET (mm d"^{-1}, ")"))
+      y = expression( paste( "Bias AET (mm m"^-2, " d"^-1, ")" ) ),
     ) +
-    theme_classic() +
+    theme_minimal() +
     theme(
       panel.grid.major.y = element_line(),
       panel.grid.major.x = element_line()
@@ -633,7 +636,7 @@ so_fun_analysis <- function(out_dir, prefix){
 
 # Model run
 
-par_calib <-  read_rds("data/fluxnet/global_calib_PM_S0.rds")
+par_calib <-  read_rds("data/fluxnet/global_calib_PMS0.rds")
 
 
 params_modl <- list(
@@ -850,30 +853,35 @@ daily_gpp <- plot_grid(PT[[1]],PM[[1]],PM_S0[[1]],ncol = 3, labels = letters[1:3
 
 ggsave(plot = daily_gpp, paste0("./fig/","daily_gpp_merged.pdf"),device = "pdf", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor) # reduce size
 ggsave(plot = daily_gpp, paste0("./fig/","daily_gpp_merged.png"), dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor) # reduce size
+ggsave(plot = daily_gpp, paste0("./fig/","daily_gpp_merged.svg"),device = "svg", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor) # reduce size
 
 
 drought_gpp <- plot_grid(PT[[3]] + ylim(-1.5,1.5),PM[[3]]+ ylim(-1.5,1.5),PM_S0[[3]]+ ylim(-1.5,1.5),ncol = 3, labels = letters[1:3])
 
 ggsave(plot = drought_gpp, paste0("./fig/","drought_gpp_merged.pdf"),device = "pdf", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)
+ggsave(plot = drought_gpp, paste0("./fig/","drought_gpp_merged.svg"),device = "svg", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)
 
 
 daily_aet <- plot_grid(PT[[4]],PM[[4]],PM_S0[[4]],ncol = 3, labels = letters[1:3])
 
 ggsave(plot = daily_aet, paste0("./fig/","daily_aet_merged.pdf"),device = "pdf", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)  # reduce size
 ggsave(plot = daily_aet, paste0("./fig/","daily_aet_merged.png"), dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)  # reduce size
+ggsave(plot = daily_aet, paste0("./fig/","daily_aet_merged.svg"),device = "svg", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor) # reduce size
 
 
 legend <- get_legend(PT[[6]])
 
 
 climates_aet <- plot_grid(PT[[6]] + xlab(NULL) + theme(legend.position = "none"),PM[[6]] + xlab(NULL)+ theme(legend.position = "none"),
-                          PM_S0[[6]]+  theme(legend.position = "none",legend),ncol = 3, labels = letters[1:3])
+                          PM_S0[[6]]+  theme(legend.position = "none",legend)+ xlab(NULL),ncol = 3, labels = letters[1:3])
 
 ggsave(plot = climates_aet, paste0("./fig/","climates_aet_merged.pdf"),device = "pdf", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)
+ggsave(plot = climates_aet, paste0("./fig/","climates_aet_merged.svg"),device = "svg", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)
 
 
-drought_aet <- plot_grid(PT[[7]]+ ylim(-1.5,0.8) ,PM[[7]] + ylim(-1.5,0.8), PM_S0[[7]]+ ylim(-1.5,0.8) ,ncol = 3, labels = letters[1:3])
+drought_aet <- plot_grid(PT[[7]]+ ylim(-1.5,0.8)+ theme_minimal() ,PM[[7]] + ylim(-1.5,0.8)+ theme_minimal(), PM_S0[[7]]+ ylim(-1.5,0.8) + theme_minimal(),ncol = 3, labels = letters[1:3])
 
 ggsave(plot = drought_aet, paste0("./fig/","drought_aet_merged.pdf"),device = "pdf", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)
+ggsave(plot = drought_aet, paste0("./fig/","drought_aet_merged.svg"),device = "svg", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)
 
 

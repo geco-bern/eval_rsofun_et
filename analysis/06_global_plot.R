@@ -17,11 +17,11 @@ p_model <- p_model |>
 
 # just p_model and the other
 #
-monthly_era5 <- read_rds("../big_data/monthly_era5.rds")
+monthly_era5 <- read_rds("/data/archive_projects/eval_rsofun_et/monthly_era5.rds")
 
-montlhy_pml <- read_rds("../big_data/montlhy_pml.rds")
+montlhy_pml <- read_rds("/data/archive_projects/eval_rsofun_et/montlhy_pml.rds")
 
-montlhy_fluxcom <- read_rds("../big_data/montlhy_fluxcom.rds")
+montlhy_fluxcom <- read_rds("/data/archive_projects/eval_rsofun_et/montlhy_fluxcom.rds")
 
 mean_model <- rbind(monthly_era5  |>
                       mutate(year = year(date)) |>

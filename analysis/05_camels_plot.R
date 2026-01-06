@@ -35,7 +35,7 @@ theme_set(
 )
 
 
-driver_data <- readRDS("./data/camels/camels_driver.rds")
+driver_data <- readRDS("/data/archive_projects/eval_rsofun_et/data/camels_driver.rds")
 
 meta_info  <- read_csv("./data/camels/camels_site_info.csv")
 
@@ -79,7 +79,7 @@ driver_data <- driver_data |> unnest(forcing) |>
 
 driver_data <- driver_data[driver_data$sitename %in% multi_year$sitename,]
 
-best_par <- readRDS("./data/fluxnet/global_calib_PMS0.rds")
+best_par <- readRDS(here("data/driver_pm_s0.rds"))
 
 params_modl <- list(
   kphio              =  best_par$par[["kphio"]],

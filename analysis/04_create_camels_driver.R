@@ -69,22 +69,22 @@ driver_data <- NULL
 
 for(i in timeseries){
   sitename <- substr(i,60,74)
-  
+
   params_siml <- rsofun::p_model_drivers$params_siml[[1]] |>
     mutate(use_gs = TRUE, use_phydro = FALSE, use_pml= TRUE) |>
     nest(params_siml = c(spinup, spinupyears, recycle, outdt, ltre,  ltne,  ltrd,  ltnd,
                          lgr3,  lgn3,  lgr4 ,
                          use_gs, use_phydro, use_pml))
-  
+
   site_info <- siteinfo[siteinfo$gauge_id == sitename,] |>
     select(lat,lon) |>
-    mutate(canopy_height =12, # TODO 
+    mutate(canopy_height =12, # TODO
            reference_height = 10) |> # I select 10 beacuse the wind velocity is measured at 10 m
     nest(site_info = c(lat,lon,canopy_height,reference_height))
-  
+
   forcing <- read_csv(i)
   forcing <- forcing |>
-    filter(lubridate::date(date) >= date_start, lubridate::date(date) <= date_end) |> 
+    filter(lubridate::date(date) >= date_start, lubridate::date(date) <= date_end) |>
     filter(!(month(date)== 2 & day(date) == 29)) |>
     rename(rain = total_precipitation_sum,
            runoff = streamflow,
@@ -100,14 +100,14 @@ for(i in timeseries){
     select(date,temp,netrad,snow,rain,tmin,tmax,vwind,co2,runoff) |>
     filter(!(lubridate::month(date) == 2 & lubridate::day(date) == 29)) |>
     nest(forcing = c(date,temp,netrad,snow,rain,tmin,tmax,vwind,co2,runoff))
-  
+
   tmp <- data.frame(sitename = sitename,
                     params_siml = tibble(params_siml),
                     site_info = tibble(site_info),
                     forcing = tibble(forcing))
-  
+
   driver_data <- rbind(driver_data,tmp)
-  
+
 }
 
 
@@ -128,7 +128,7 @@ df_out <- ingest_globalfields(siteinfo = siteinfo,source = source,getvars = getv
                               dir = dir, timescale= timescale,is_shapefile = T, shapefile = shapefile)
 
 
-driver_data <- 
+driver_data <-
   left_join(driver_data |>
               unnest(forcing),
             df_out |>
@@ -155,7 +155,7 @@ df_out <- tibble()
 df_out <- ingest_globalfields(siteinfo = siteinfo,source = source,getvars = getvars,
                               dir = dir, timescale= timescale,is_shapefile = T, shapefile = shapefile)
 
-driver_data <- 
+driver_data <-
   left_join(driver_data |>
               unnest(site_info),
             df_out ,
@@ -178,7 +178,7 @@ df_out <- ingest_globalfields(siteinfo = siteinfo,source = source,getvars = getv
                               dir = dir, timescale= timescale,is_shapefile = T, shapefile = shapefile)
 
 
-driver_data <- 
+driver_data <-
   left_join(driver_data |>
               unnest(site_info),
             df_out ,
@@ -196,7 +196,7 @@ df_cld <- ingestr:::extract_pointdata_allsites_shp(
   df_shapefile = shapefile,
   get_time = T,
   year_arg = NA_integer_, month_arg = NA_integer_ # only used for WFDEI in combination with get_time
-) 
+)
 
 df_cld <- df_cld |> unnest(data) |>
   filter(varnam == "cld") |>
@@ -214,10 +214,10 @@ df_cld <- df_cld |>
   rename(ccov = value)
 
 driver_data <- left_join(
-  driver_data |> 
+  driver_data |>
     unnest(forcing),
   df_cld, by=c("sitename","date")
-) |> 
+) |>
   nest(forcing =c(date,temp,vpd,ppfd,netrad,patm,snow,rain,tmin,tmax,vwind,co2,ccov,runoff))
 
 
@@ -242,10 +242,10 @@ df_tmp <- NULL
 
 for(j in year_seq){
   file_to_extract <- grep(j,files)
-  
+
   df_final <- NULL
   # extract yearly fapar
-  
+
   for(i in 1:24){
     df_fapar <-  ingestr:::extract_pointdata_allsites_shp(
       filename = paste0("/data/archive/fapar3g_zhu_2013/data/",files[file_to_extract[i]]),
@@ -253,60 +253,60 @@ for(j in year_seq){
       get_time = F,
       year_arg = NA_integer_, month_arg = NA_integer_ # only used for WFDEI in combination with get_time
     )
-    
+
     df_fapar <- df_fapar|> unnest(data) |> rename(fapar = colnames(df_fapar|> unnest(data))[2])
     df_fapar$date <- lubridate::as_date(paste0(j,by_weekly[i]))
-    
+
     df_final <- rbind(df_final,df_fapar)
   }
   # linearly extend from biweekly to daily
-  
+
   for(k in unique(df_final$sitename)){
-    
-    
+
+
     tmp <- df_final[df_final$sitename == k,]
-    
+
     tmp <- data.table::setorder(tmp,date)
-    
+
     linear_fapar <-approx(tmp$date,tmp$fapar,method = 'linear',n = 25*14 - 2)
-    
+
     linear_fapar <- data.frame(date = lubridate::as_date(linear_fapar$x),
                                fapar =  linear_fapar$y)
-    
-    
+
+
     # calculate the fapar from 12-14 to 12-31
     slope <-(tmp$fapar[24] - tmp$fapar[23]) / 14
-    
+
     step <- seq(1,17,1)
-    
+
     fapar <- tmp$fapar[24] + slope * step
-    
+
     daily_fapar <- c(linear_fapar$fapar,fapar)
-    
+
     days <- seq(lubridate::as_date(paste0(j,"-01-01")),lubridate::as_date(paste0(j,"-12-31")), by = "day")
-    
+
     # remove 29-02
-    
+
     if(length(grep("02-29",days)) != 0){
       days <- days[-(grep("02-29",days))]
     }
-    
-    
+
+
     tmp_df <- data.frame(sitename = k, date = days, fapar = daily_fapar)
-    
-    
+
+
     df_tmp <- rbind(df_tmp,tmp_df)}
-  
+
 }
 
 
 
-# 
+#
 # file_to_extract <- grep(year_seq,files)
-# 
-# 
+#
+#
 # df_final <- NULL
-#   
+#
 # for(i in 1:24){
 #     df_fapar <-  ingestr:::extract_pointdata_allsites_shp(
 #   filename = paste0("/data/archive/fapar3g_zhu_2013/data/",files[file_to_extract[i]]),
@@ -314,48 +314,45 @@ for(j in year_seq){
 #   get_time = F,
 #   year_arg = NA_integer_, month_arg = NA_integer_ # only used for WFDEI in combination with get_time
 #   )
-#     
+#
 #     df_fapar <- df_fapar|> unnest(data) |> rename(fapar = colnames(df_fapar|> unnest(data))[2])
 #     df_fapar$date <- lubridate::as_date(paste0(year_seq[1],by_weekly[i]))
-#     
+#
 #     df_final <- rbind(df_final,df_fapar)
 # }
-# 
+#
 # tmp <- df_final |> arrange(df_final, sitename)
 
 
 
 # df_tmp <- NULL
-# 
-# 
+#
+#
 # for(i in unique(df_final$sitename)){
 #   tmp <- df_final[df_final$sitename == i,]
-#   
+#
 #   tmp <- data.table::setorder(tmp,date)
-#   
+#
 #   linear_fapar <-approx(tmp$date,tmp$fapar,method = 'linear',n = 25*14 - 2)
-#   
+#
 #   linear_fapar <- data.frame(date = lubridate::as_date(linear_fapar$x),
 #                            fapar =  linear_fapar$y)
-#   
+#
 #   slope <-(tmp$fapar[24] - tmp$fapar[23]) / 14
-#   
+#
 #   step <- seq(1,17,1)
-#   
+#
 #   fapar <- tmp$fapar[24] + slope * step
-# 
+#
 #   daily_fapar <- c(linear_fapar$fapar,fapar)
-#     
+#
 #   days <- seq(lubridate::as_date("2005-01-01"),lubridate::as_date("2005-12-31"), by = "day")
-#   
+#
 #   tmp_df <- data.frame(sitename = i, date = days, fapar = daily_fapar)
-#   
-#   
+#
+#
 #   df_tmp <- rbind(df_tmp,tmp_df)
 # }
-
-
-
 
 
 driver_data <- left_join(
@@ -366,5 +363,5 @@ driver_data <- left_join(
   nest(forcing =c(date,temp,vpd,ppfd,netrad,patm,snow,rain,tmin,tmax,vwind,fapar,co2,ccov,runoff))
 
 
-saveRDS(driver_data,"camels_driver2.rds")
+saveRDS(driver_data,"/data/archive_projects/eval_rsofun_et/data/camels_driver.rds")
 

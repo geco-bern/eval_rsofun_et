@@ -7,13 +7,13 @@ library(lubridate)
 library(purrr)
 # library(remotes)
 library(terra)
-library(rsofun)
 library(here)
 
 # remotes::install_github(
 #   "geco-bern/rsofun",
 #   ref = "phydro"
 # )
+library(rsofun)
 
 source(here("R/modified_cost_likelihood_pmodel.R"))
 
@@ -105,7 +105,7 @@ driver_pm <- driver |>
     )))
 
 # Get 2 m-WHC for file
-rasta <- rast(here("data/fluxnet/whc_2m.nc"))
+rasta <- rast("/data/archive_projects/eval_rsofun_et/data/whc_2m.nc")
 
 df <- driver_pm |>
   select(sitename,  site_info) |>

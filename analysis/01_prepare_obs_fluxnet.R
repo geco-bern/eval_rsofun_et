@@ -124,7 +124,7 @@ obs_eval <- list(
   breaks = breaks
 )
 
-saveRDS(obs_eval, file = here::here("data/obs_eval_fluxnet.rds"))
+write_rds(obs_eval, file = here::here("data/obs_eval_fluxnet.rds"))
 
 ## CAMELS ----------------------------------------------------------------------
 # this code is copied from R/create_obs_eval.R
@@ -185,3 +185,4 @@ obs_eval$adf <- tibble(
   data = adf_tibble_preparation
 )
 
+write_rds(obs_eval, file = here::here("data/obs_eval_camels.rds"))

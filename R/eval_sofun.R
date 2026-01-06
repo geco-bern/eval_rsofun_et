@@ -124,7 +124,6 @@ eval_sofun_byvar <- function(
 
     settings$sitenames <- settings$sitenames[which(!(settings$sitenames %in% missing_mod))]
 
-
     # Get daily model output ----
 
     # missing_mod <- purrr::map_lgl( mod$daily, ~identical(., NA ) ) |> which() |> names()
@@ -154,16 +153,18 @@ eval_sofun_byvar <- function(
 
     adf <- obs_eval$adf |>
       tidyr::unnest(data) |>
+      dplyr::mutate(year = lubridate::year(date)) |>
       dplyr::select(sitename, year, obs = {{ varnam_obs }}, qc = {{ varnam_qc }})
     mdf <- obs_eval$mdf |>
       tidyr::unnest(data) |>
+      dplyr::mutate(year = lubridate::year(date), month = lubridate::month(date)) |>
       dplyr::select(sitename, year, month, obs = {{ varnam_obs }}, qc = {{ varnam_qc }})
     ddf <- obs_eval$ddf |>
       tidyr::unnest(data) |>
       dplyr::select(sitename, date, obs = {{ varnam_obs }}, qc = {{ varnam_qc }}, lat, koeppen_code)
     xdf <- obs_eval$xdf |>
       tidyr::unnest(data) |>
-      dplyr::select(sitename, bin, obs = {{ varnam_obs }}, qc = {{ varnam_qc }})
+      dplyr::select(sitename, inbin, obs = {{ varnam_obs }}, qc = {{ varnam_qc }})
 
     # Aggregate model output data to annual/monthly/weekly ----
 

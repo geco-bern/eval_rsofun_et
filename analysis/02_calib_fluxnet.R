@@ -24,6 +24,13 @@ source(here("R/modified_cost_likelihood_pmodel.R"))
 # File created by 00_prepare_forcing_fluxnet.R
 driver <- read_rds(here("data/driver.rds"))
 
+# subset to training sites
+sites <- read_csv(here("data/sites.csv")) |>
+  filter(train == TRUE)
+
+driver <- driver |>
+  filter(sitename %in% sites$sitename)
+
 ### Parameters fixed for all setups --------------------------------------------
 params_fix <- list(
   rd_to_vcmax = 0.014,
@@ -71,8 +78,6 @@ driver_pm_s0 <- driver |>
       use_pml = TRUE,
       is_global = FALSE
       )))
-
-write_rds(driver_pm_s0, file = here("data/driver_pm_s0.rds"))
 
 # Run the calibration for GPP data
 calib_output <- calib_sofun(
@@ -158,8 +163,6 @@ driver_pt <- driver_pm |>
       use_pml= FALSE,
       is_global = FALSE
     )))
-
-write_rds(driver_pt, file = here("data/driver_pt.rds"))
 
 # Run the calibration for GPP data
 calib_output <- calib_sofun(

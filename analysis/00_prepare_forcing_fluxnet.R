@@ -1,5 +1,5 @@
 # FLUXNET forcing data preparation ---------------------------------------------
-## library and data loading ----------------------------------------------------
+## Library and data loading ----------------------------------------------------
 library(dplyr)
 library(tidyr)
 library(readr)
@@ -13,15 +13,15 @@ source(here("R/create_table_latex.R"))
 
 ## Read external files ---------------------------------------------------------
 # These files are all part of the Zenodo release
-driver <- read_rds("/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
-# driver <- read_rds("~/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
+# driver <- read_rds("/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
+driver <- read_rds("~/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
 
-fdk_site_info <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
-# fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
+# fdk_site_info <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
+fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
 
 # data quality filter info
-fdk_filter <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
-# fdk_filter <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
+# fdk_filter <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
+fdk_filter <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
 
 ## Select sites ----------------------------------------------------------------
 # select sites based on minimum year availability (1), veg type filter, etc.
@@ -35,9 +35,36 @@ sites <- fdk_site_info |>
   filter(!drop_gpp & !drop_le) |>  # where no full year sequence was found
   filter(nyears_gpp >= 1, nyears_le >= 1)
 
+# determine sites used for model calibration (training):
+# must have minimum length of good-quality time series sequence
+# sample one site per stratum, defined based on Koeppen-Geiger climate and IGBP land cover class
+set.seed(123)
+sites_train <- sites |>
+  mutate(strata = interaction(koeppen_code, igbp_land_use, drop = TRUE)) |>
+  filter(nyears_gpp & nyears_le > 12) |>
+  group_by(strata) |>
+  sample_n(size = 1, replace = FALSE) |>
+  ungroup() |>
+  pull(sitename)
+
+# add column specifying whether part of training (calibration) set
+sites <- sites |>
+  mutate(train = ifelse(sitename %in% sites_train, TRUE, FALSE))
+
+# write to file
+write_csv(
+  sites,
+  file = here("data/sites.csv")
+)
+
 ## Select years ----------------------------------------------------------------
 # select years based on good-quality data sequences
 driver <- driver |>
+
+  # subset driver to sites retained up to this point: after removing sites without
+  # a full year of good-quality data, and after removing croplands and wetlands
+  filter(sitename %in% sites$sitename) |>
+
   select(sitename, forcing) |>
   unnest(cols = c(forcing)) |>
 
@@ -106,7 +133,7 @@ df_sites_metainfo <- driver |>
     ) |>
   select(-params_siml, -site_info, -forcing, -year_start_end) |>
   left_join(
-    fdk_site_info |>
+    sites |>
       select(-year_start, -year_end),
     by = join_by(sitename)
   )
@@ -122,6 +149,7 @@ create_table_latex(
   df_sites_metainfo |>
     select(
       Site = sitename,
+      Train = train,
       `Lon.` = lon,
       `Lat.` = lat,
       `Elv.` = elv,
@@ -149,21 +177,24 @@ gg_sitedensity <- ggplot() +
   # world country outlines
   geom_sf(data = world, fill = "gray95", color = "gray70", size = 0.2) +
 
-  # geom_point(
-  #   data = df_sites_metainfo,
-  #   mapping = aes(x = lon, y = lat),
-  #   size = 0.5,
-  #   color = "red"
-  # ) +
-
-  # hex bin layer: count of points per hex
-  stat_bin_hex(
+  geom_point(
     data = df_sites_metainfo,
-    mapping = aes(x = lon, y = lat, fill = after_stat(count)),
-    bins = c(100, 70),
-    color = NA,
-    alpha = 0.9
+    mapping = aes(x = lon, y = lat, color = train),
+    size = 0.5
   ) +
+
+  scale_color_manual(
+    values = c("grey40", "tomato")
+  ) +
+
+  # # hex bin layer: count of points per hex
+  # stat_bin_hex(
+  #   data = df_sites_metainfo,
+  #   mapping = aes(x = lon, y = lat, fill = after_stat(count)),
+  #   bins = c(100, 70),
+  #   color = NA,
+  #   alpha = 0.9
+  # ) +
 
   # # discrete-looking color scale
   # scale_fill_stepsn(
@@ -200,7 +231,6 @@ gg_sitedensity <- ggplot() +
   )
 
 gg_sitedensity
-
 
 # xxxxxxxxxxxxxxxx
 #

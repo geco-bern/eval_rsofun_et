@@ -35,14 +35,95 @@ params_fix <- list(
   tau_acclim = 30
 )
 
-driver <- read_rds(here("data/driver_pt.rds")) # created in 01_calib_fluxnet.R
+driver <- read_rds(here("data/driver.rds"))
+
+# subset to testing sites
+sites <- read_csv(here("data/sites.csv")) |>
+  filter(train == FALSE)
+
+driver <- driver |>
+  filter(sitename %in% sites$sitename)
 
 fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv") |>
   filter(sitename %in% driver$sitename)
 
-obs_eval <- create_obs_eval(driver, fdk_site_info, target = c("gpp", "le"))
+# obs_eval <- create_obs_eval(driver, fdk_site_info, target = c("gpp", "le"))
+obs_eval <- read_rds(here::here("data/obs_eval_fluxnet.rds"))
 
 ## Run model for all setups ----------------------------------------------------
+### PM-S0 ---------------
+#### rsofun driver object ---------------
+driver_pm_s0 <- driver |>
+  mutate(params_siml = map(
+    params_siml,
+    ~mutate(
+      .,
+      use_gs = TRUE,
+      use_phydro = FALSE,
+      use_pml = TRUE,
+      is_global = FALSE
+    )))
+
+#### calibrated parameters ---------------
+par_calib <- read_rds(here("data/calib_output_pm_s0.rds"))
+
+#### construct all parameters ---------------
+params_modl <- c(par_calib$par[c("kphio", "kphio_par_a", "kphio_par_b", "soilm_thetastar", "gw_calib")], params_fix)
+
+#### run model ---------------
+output_pm_s0 <- runread_pmodel_f(
+  driver_pm_s0,
+  par = params_modl
+)
+
+#### run evaluation ---------------
+settings_eval <- list(
+  benchmark = list(gpp = c("fluxnet"), le = c("fluxnet")),
+  # sitenames = evalsites,
+  agg = 8
+)
+
+out_eval <- eval_sofun(
+  output_pm_s0,
+  settings_eval,
+  obs_eval = obs_eval,
+  overwrite = TRUE,
+  light = FALSE
+)
+
+
+### PM ---------------
+#### rsofun driver object ---------------
+driver_pm <- read_rds(here("data/driver_pm.rds")) # created in 01_calib_fluxnet.R
+
+#### calibrated parameters ---------------
+par_calib <- read_rds(here("data/fluxnet/global_calib_PM.rds"))
+
+#### construct all parameters ---------------
+params_modl <- c(par_calib, par_fixed)
+
+#### run model ---------------
+output_pt <- runread_pmodel_f(
+  driver_pt,
+  par = params_modl
+)
+
+#### run evaluation ---------------
+settings_eval <- list(
+  benchmark = list(gpp = c("fluxnet"), le = c("fluxnet")),
+  # sitenames = evalsites,
+  agg = 8
+)
+
+out_eval <- eval_sofun(
+  output_pt,
+  settings_eval,
+  obs_eval = obs_eval,
+  overwrite = TRUE,
+  light = FALSE
+)
+
+
 ### PT ---------------
 #### rsofun driver object ---------------
 driver_pt <- read_rds(here("data/driver_pt.rds")) # created in 01_calib_fluxnet.R
@@ -66,7 +147,6 @@ settings_eval <- list(
   agg = 8
 )
 
-##  Evaluate model ----
 out_eval <- eval_sofun(
   output_pt,
   settings_eval,
@@ -75,16 +155,6 @@ out_eval <- eval_sofun(
   light = FALSE
 )
 
-
-### PM ---------------
-driver_pm <- read_rds(here("data/driver_pm.rds")) # created in 01_calib_fluxnet.R
-par_calib <- read_rds(here("data/fluxnet/global_calib_PM.rds"))
-
-
-
-### PM-S0 -----------
-driver_pm_s0 <- read_rds(here("data/driver_pm_s0.rds")) # created in 01_calib_fluxnet.R
-par_calib <- read_rds(here("data/fluxnet/global_calib_PM_S0.rds"))
 
 
 

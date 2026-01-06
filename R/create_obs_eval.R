@@ -4,6 +4,11 @@ create_obs_eval <- function(driver, fdk_site_info, target, scale = "fluxnet", ru
 
   if (scale == "fluxnet") {
 
+    target <- c(
+      target,
+      paste0(target, "_qc")
+    )
+
     # daily data
     ddf_tibble_preparation <- driver |>
       unnest(forcing) |>
@@ -85,7 +90,6 @@ create_obs_eval <- function(driver, fdk_site_info, target, scale = "fluxnet", ru
     )
 
     # annual data
-
     adf_tibble_preparation <- driver |>
       unnest(forcing) |>
       mutate(year = lubridate::floor_date(date, "year")) |>

@@ -5,7 +5,7 @@ library(dplyr)
 library(tidyr)
 library(terra)
 library(lubridate)
-library(ingestr)
+library(ingestr) # uses ingestr branch 'shapefile'
 # data preparation, currently only on my folder
 
 # will take at random 10 catchements and see what happens

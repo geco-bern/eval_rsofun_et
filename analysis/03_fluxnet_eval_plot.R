@@ -11,6 +11,7 @@ library(ggplot2)
 library(lubridate)
 library(knitr)
 library(ggthemes)
+library(purrr)
 library(here)
 # library(ncdf4)
 library(cowplot)
@@ -37,6 +38,15 @@ params_fix <- list(
 
 driver <- read_rds(here("data/driver.rds"))
 
+# remove sites with missing observed GPP or LE in driver data
+driver <- driver |>
+  mutate(
+    nmissing_gpp = map_int(forcing, ~ sum(is.na(.$gpp))),
+    nmissing_le = map_int(forcing, ~ sum(is.na(.$le)))
+  ) |>
+  filter(nmissing_gpp == 0 & nmissing_le == 0) |>
+  select(-nmissing_gpp, -nmissing_le)
+
 # subset to testing sites
 sites <- read_csv(here("data/sites.csv")) |>
   filter(train == FALSE)
@@ -50,19 +60,30 @@ fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info
 # obs_eval <- create_obs_eval(driver, fdk_site_info, target = c("gpp", "le"))
 obs_eval <- read_rds(here::here("data/obs_eval_fluxnet.rds"))
 
-## Run model for all setups ----------------------------------------------------
+# retain only observational data for sites in driver
+obs_eval$ddf <- obs_eval$ddf |>
+  filter(sitename %in% driver$sitename)
+obs_eval$mdf <- obs_eval$mdf |>
+  filter(sitename %in% driver$sitename)
+obs_eval$adf <- obs_eval$adf |>
+  filter(sitename %in% driver$sitename)
+obs_eval$xdf <- obs_eval$xdf |>
+  filter(sitename %in% driver$sitename)
+
+## Run model and evaluations for all setups ----------------------------------------------------
 ### PM-S0 ---------------
 #### rsofun driver object ---------------
 driver_pm_s0 <- driver |>
   mutate(params_siml = map(
     params_siml,
-    ~mutate(
+    ~ mutate(
       .,
       use_gs = TRUE,
       use_phydro = FALSE,
       use_pml = TRUE,
       is_global = FALSE
-    )))
+    )
+  ))
 
 #### calibrated parameters ---------------
 par_calib <- read_rds(here("data/calib_output_pm_s0.rds"))
@@ -83,14 +104,13 @@ settings_eval <- list(
   agg = 8
 )
 
-out_eval <- eval_sofun(
+out_eval_pm_s0 <- eval_sofun(
   output_pm_s0,
   settings_eval,
   obs_eval = obs_eval,
   overwrite = TRUE,
   light = FALSE
 )
-
 
 ### PM ---------------
 #### rsofun driver object ---------------
@@ -155,9 +175,49 @@ out_eval <- eval_sofun(
   light = FALSE
 )
 
+## Create plots --------
+### Mod vs Obs, x-daily LE ------------
+out_eval_pm_s0$le$fluxnet$plot$gg_modobs_monthly +
+  labs(title = NULL)
+
+### Mean seasonal cycle by climate zone -----------
+out_eval_pm_s0$le$fluxnet$data$meandoydf_byclim %>%
+  filter(nsites > 3) |>
+  # dplyr::filter(climatezone %in%
+  #   c(
+  #     "Csb north", "Csa north", "ET north",
+  #     "Dfb north", "Dsa north", "Af north",
+  #     "Aw south", "Cfb north", "Bsh south"
+  #   )) %>%
+  pivot_longer(
+    c(obs_mean, mod_mean),
+    names_to = "source",
+    values_to = "gpp"
+  ) %>%
+  ggplot() +
+  geom_ribbon(
+    aes(x = doy, ymin = obs_min, ymax = obs_max),
+    fill = "grey70"
+  ) +
+  geom_line(aes(x = doy, y = gpp, color = source), size = 0.4) +
+  labs(
+    y = expression(paste("LE  (W m"^-2, ")")),
+    x = "DOY"
+  ) +
+  facet_wrap(~climatezone, ncol = 3) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    strip.text = element_text(size = 14)
+  ) +
+  scale_color_manual(
+    name = NULL,
+    breaks = c("Modelled" = "mod_mean", "Observed" = "obs_mean"),
+    values = c("royalblue", "black")
+  )
 
 
-
+# OLD -------------------------
 # source("R/main_plus_metrics.R")
 # source("R/heatscatter_dependencies.R")
 # source("R/create_obs_eval.R")

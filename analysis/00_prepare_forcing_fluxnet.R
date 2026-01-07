@@ -24,6 +24,15 @@ fdk_filter <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyear
 # fdk_filter <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
 
 ## Select sites ----------------------------------------------------------------
+# # remove sites with missing observed GPP or LE in driver data
+# driver <- driver |>
+#   mutate(
+#     nmissing_gpp = map_int(forcing, ~sum(is.na(.$gpp))),
+#     nmissing_le = map_int(forcing, ~sum(is.na(.$le)))
+#   ) |>
+#   filter(nmissing_gpp == 0 & nmissing_le == 0) |>
+#   select(-nmissing_gpp, -nmissing_le)
+
 # select sites based on minimum year availability (1), veg type filter, etc.
 sites <- fdk_site_info |>
   filter(!(sitename %in% c("MX-Tes", "US-KS3"))) |>  # failed sites
@@ -34,6 +43,9 @@ sites <- fdk_site_info |>
   ) |>
   filter(!drop_gpp & !drop_le) |>  # where no full year sequence was found
   filter(nyears_gpp >= 1, nyears_le >= 1)
+
+  # # retain only those for which we have driver data (after dropping those with missing GPP and LE)
+  # filter(sitename %in% driver$sitename)
 
 # determine sites used for model calibration (training):
 # must have minimum length of good-quality time series sequence

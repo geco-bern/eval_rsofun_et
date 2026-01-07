@@ -76,13 +76,12 @@ eval_sofun_byvar <- function(
   #!!! select axys label (add others if needed)
 
   if (varnam == "le"){
-
     lab = "LE  (J"
     pal = "davos"
 
     # convert unit to W m-2 (mean rate)
     ddf_mod <- ddf_mod |>
-      mutate(mod = mod / (24*60*60))
+      mutate(mod = mod / (24 * 60 * 60))
 
   }
   if (varnam == "gpp"){
@@ -153,18 +152,19 @@ eval_sofun_byvar <- function(
 
     adf <- obs_eval$adf |>
       tidyr::unnest(data) |>
-      dplyr::mutate(year = lubridate::year(date)) |>
       dplyr::select(sitename, year, obs = {{ varnam_obs }}, qc = {{ varnam_qc }})
+
     mdf <- obs_eval$mdf |>
       tidyr::unnest(data) |>
-      dplyr::mutate(year = lubridate::year(date), month = lubridate::month(date)) |>
       dplyr::select(sitename, year, month, obs = {{ varnam_obs }}, qc = {{ varnam_qc }})
+
     ddf <- obs_eval$ddf |>
       tidyr::unnest(data) |>
       dplyr::select(sitename, date, obs = {{ varnam_obs }}, qc = {{ varnam_qc }}, lat, koeppen_code)
+
     xdf <- obs_eval$xdf |>
       tidyr::unnest(data) |>
-      dplyr::select(sitename, inbin, obs = {{ varnam_obs }}, qc = {{ varnam_qc }})
+      dplyr::select(sitename, bin, obs = {{ varnam_obs }}, qc = {{ varnam_qc }})
 
     # Aggregate model output data to annual/monthly/weekly ----
 
@@ -359,7 +359,8 @@ eval_sofun_byvar <- function(
           obs_max = max(obs, na.rm = TRUE),
           mod_mean = mean(mod, na.rm = TRUE),
           mod_min = min(mod, na.rm = TRUE),
-          mod_max = max(mod, na.rm = TRUE)
+          mod_max = max(mod, na.rm = TRUE),
+          .groups = "drop"
         ) |>
         mutate(
           obs_min = ifelse(is.infinite(obs_min), NA, obs_min),
@@ -389,6 +390,7 @@ eval_sofun_byvar <- function(
         rlang::inform("Evaluate mean seasonal cycle by climate zones...")
         meandoydf_byclim <- ddf |>
           mutate(doy = yday(date)) |>
+          mutate(koeppen_code = ifelse(koeppen_code == "BSk", "Bsk", koeppen_code)) |>
           mutate(hemisphere = ifelse(lat > 0, "north", "south")) |>
           dplyr::select(-lat) |>
           dplyr::filter(doy != 366) |>
@@ -400,7 +402,8 @@ eval_sofun_byvar <- function(
             mod_mean = median(mod, na.rm = TRUE),
             mod_min = quantile(mod, 0.33, na.rm = TRUE),
             mod_max = quantile(mod, 0.66, na.rm = TRUE),
-            nsites = length(unique(sitename))
+            nsites = length(unique(sitename)),
+            .groups = "drop"
           ) |>
           mutate(
             obs_min = ifelse(is.infinite(obs_min), NA, obs_min),

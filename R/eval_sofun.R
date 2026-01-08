@@ -390,7 +390,11 @@ eval_sofun_byvar <- function(
         rlang::inform("Evaluate mean seasonal cycle by climate zones...")
         meandoydf_byclim <- ddf |>
           mutate(doy = yday(date)) |>
-          mutate(koeppen_code = ifelse(koeppen_code == "BSk", "Bsk", koeppen_code)) |>
+          mutate(
+            koeppen_code = ifelse(koeppen_code == "BSk", "Bsk", koeppen_code),
+            koeppen_code = ifelse(koeppen_code == "BSh", "Bsh", koeppen_code),
+            koeppen_code = ifelse(koeppen_code == "BWk", "Bwk", koeppen_code)
+          ) |>
           mutate(hemisphere = ifelse(lat > 0, "north", "south")) |>
           dplyr::select(-lat) |>
           dplyr::filter(doy != 366) |>

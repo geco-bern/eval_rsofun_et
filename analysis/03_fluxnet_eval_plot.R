@@ -13,6 +13,7 @@ library(knitr)
 library(ggthemes)
 library(purrr)
 library(here)
+library(see)
 # library(ncdf4)
 library(cowplot)
 library(here)
@@ -117,14 +118,14 @@ out_eval_pm_s0 <- eval_sofun(
 driver_pm <- read_rds(here("data/driver_pm.rds")) # created in 01_calib_fluxnet.R
 
 #### calibrated parameters ---------------
-par_calib <- read_rds(here("data/fluxnet/global_calib_PM.rds"))
+par_calib <- read_rds(here("data/calib_output_pm.rds"))
 
 #### construct all parameters ---------------
-params_modl <- c(par_calib, par_fixed)
+params_modl <- c(par_calib$par[c("kphio", "kphio_par_a", "kphio_par_b", "soilm_thetastar", "gw_calib")], params_fix)
 
 #### run model ---------------
 output_pt <- runread_pmodel_f(
-  driver_pt,
+  driver_pm,
   par = params_modl
 )
 
@@ -135,7 +136,7 @@ settings_eval <- list(
   agg = 8
 )
 
-out_eval <- eval_sofun(
+out_eval_pm <- eval_sofun(
   output_pt,
   settings_eval,
   obs_eval = obs_eval,
@@ -180,15 +181,68 @@ out_eval <- eval_sofun(
 out_eval_pm_s0$le$fluxnet$plot$gg_modobs_monthly +
   labs(title = NULL)
 
+out_eval_pm$le$fluxnet$plot$gg_modobs_monthly +
+  labs(title = NULL)
+
 ### Mean seasonal cycle by climate zone -----------
+# number of sites per climate zone
+out_eval_pm_s0$le$fluxnet$data$meandoydf_byclim |>
+  select(climatezone, nsites) |>
+  distinct() |>
+  arrange(desc(nsites))
+
+#### LE ----------
 out_eval_pm_s0$le$fluxnet$data$meandoydf_byclim %>%
-  filter(nsites > 3) |>
+  filter(nsites >= 5) |>
   # dplyr::filter(climatezone %in%
   #   c(
   #     "Csb north", "Csa north", "ET north",
   #     "Dfb north", "Dsa north", "Af north",
   #     "Aw south", "Cfb north", "Bsh south"
   #   )) %>%
+  rename_with(~ sub("^mod_", "mod_pm_s0_", .x), starts_with("mod_")) |>
+  left_join(
+    out_eval_pm$le$fluxnet$data$meandoydf_byclim %>%
+      filter(nsites >= 5) |>
+      rename_with(~ sub("^mod_", "mod_pm_", .x), starts_with("mod_")) |>
+      select(-starts_with("obs")),
+    by = join_by(climatezone, doy)
+  ) |>
+  pivot_longer(
+    cols = c(obs_mean, mod_pm_s0_mean, mod_pm_mean),
+    names_to = "source",
+    values_to = "le"
+  ) %>%
+  ggplot() +
+  geom_ribbon(
+    aes(x = doy, ymin = obs_min, ymax = obs_max),
+    fill = "grey70"
+  ) +
+  geom_line(aes(x = doy, y = le, color = source)) +
+  labs(
+    y = expression(paste("LE  (W m"^-2, ")")),
+    x = "DOY"
+  ) +
+  facet_wrap(~climatezone, ncol = 4) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    strip.text = element_text(size = 14)
+  ) +
+  scale_color_manual(
+    name = NULL,
+    breaks = c("PM" = "mod_pm_mean", "PM-S0" = "mod_pm_s0_mean", "Observed" = "obs_mean"),
+    values = c(unname(see::okabeito_colors()[c(1,5)]), "black")
+  )
+
+#### GPP ---------
+zones <- out_eval_pm_s0$le$fluxnet$data$meandoydf_byclim %>%
+  filter(nsites >= 5) |>
+  pull(climatezone) |>
+  unique()
+
+out_eval_pm_s0$gpp$fluxnet$data$meandoydf_byclim %>%
+  dplyr::filter(climatezone %in% zones) %>%
   pivot_longer(
     c(obs_mean, mod_mean),
     names_to = "source",
@@ -201,10 +255,10 @@ out_eval_pm_s0$le$fluxnet$data$meandoydf_byclim %>%
   ) +
   geom_line(aes(x = doy, y = gpp, color = source), size = 0.4) +
   labs(
-    y = expression(paste("LE  (W m"^-2, ")")),
+    y = expression(paste("GPP  (gC m"^-2, "d"^-1, ")")),
     x = "DOY"
   ) +
-  facet_wrap(~climatezone, ncol = 3) +
+  facet_wrap(~climatezone, ncol = 4) +
   theme_bw() +
   theme(
     legend.position = "bottom",
@@ -213,7 +267,7 @@ out_eval_pm_s0$le$fluxnet$data$meandoydf_byclim %>%
   scale_color_manual(
     name = NULL,
     breaks = c("Modelled" = "mod_mean", "Observed" = "obs_mean"),
-    values = c("royalblue", "black")
+    values = c("red", "black")
   )
 
 

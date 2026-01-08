@@ -109,7 +109,6 @@ output_filter <- output |>
 
 obs_eval <- create_obs_eval(driver_data, scale = "camels")
 
-
 settings_eval <- list(
   benchmark = list( aet = c("camels") ),
   sitenames = output$sitename,

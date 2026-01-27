@@ -4,39 +4,45 @@ library(tidyr)
 library(terra)
 library(lubridate)
 library(ingestr) # uses ingestr branch 'shapefile'
+library(stringr)
 
 # data preparation, currently only on my folder
 
 # will take at random 10 catchements and see what happens
 
 # vector_path <- "~/data_scratch/shapefiles/camels/camels_basin_shapes.shp" # Francesco
-vector_path <- "~/Downloads/basin_set_full_res/HCDN_nhru_final_671.shp" # from Zenodo https://doi.org/10.5065/D6MW2F4D
+# vector_path <- "~/Downloads/basin_set_full_res/HCDN_nhru_final_671.shp" # from Zenodo https://doi.org/10.5065/D6MW2F4D
+vector_path <- "/data/archive_projects/eval_rsofun_et/data/caravan/Caravan-csv/shapefiles/camels/camels_basin_shapes.shp"
 
 shapefile <- terra::vect(vector_path)
 
-# shapefile <- shapefile[300:309,]
+# catchmentinfo <- read_csv("~/data_scratch/camels_timeseries/camels/attributes_other_camels.csv")
+catchmentinfo <- read_csv("/data/archive_projects/eval_rsofun_et/data/caravan/Caravan-csv/attributes/camels/attributes_other_camels.csv")
+catchmentinfo_caravan <- read_csv("/data/archive_projects/eval_rsofun_et/data/caravan/Caravan-csv/attributes/camels/attributes_caravan_camels.csv")
+catchmentinfo_hydroatlas <- read_csv("/data/archive_projects/eval_rsofun_et/data/caravan/Caravan-csv/attributes/camels/attributes_hydroatlas_camels.csv")
 
-siteinfo <- read_csv("~/data_scratch/camels_timeseries/camels/attributes_other_camels.csv")
-
-# Not found in
-# siteinfo <- read_csv("~/Downloads/")
-
-siteinfo <- siteinfo[siteinfo$gauge_id %in% shapefile$gauge_id, ]
-
-# we add the year of interest, for example 2004
-
-date_start <- lubridate::ymd(paste0(1990, "-01-01"))
-date_end <- lubridate::ymd(paste0(2010, "-12-31"))
-
-# this takes lon and lat of each catchment as its outlet
-siteinfo <- siteinfo |>
-  dplyr::mutate(date_start = date_start) |>
-  dplyr::mutate(date_end = date_end) |>
-  mutate(sitename = gauge_id) |>
-  rename(
-    lon = gauge_lon,
-    lat = gauge_lat
+# combine all meta info
+catchmentinfo <- catchmentinfo |>
+  left_join(
+    catchmentinfo_caravan,
+    by = join_by(gauge_id)
+  ) |>
+  left_join(
+    catchmentinfo_hydroatlas,
+    by = join_by(gauge_id)
   )
+
+# subset to those for which we have a shapefile
+catchmentinfo <- catchmentinfo[catchmentinfo$gauge_id %in% shapefile$gauge_id, ]
+
+# # this takes lon and lat of each catchment as its outlet
+# catchmentinfo <- catchmentinfo |>
+#   dplyr::mutate(date_start = lubridate::ymd(paste0(1990, "-01-01"))) |>
+#   dplyr::mutate(date_end = lubridate::ymd(paste0(2020, "-12-31"))) |>
+#   rename(
+#     lon = gauge_lon,
+#     lat = gauge_lat
+#   )
 
 ## CO2 ---------
 df_co2 <- ingest_bysite(
@@ -47,15 +53,61 @@ df_co2 <- ingest_bysite(
   verbose = FALSE
 )
 
-# remove 29-02
-df_co2 <- df_co2 |>
-  filter(!(month(date) == 2 & day(date) == 29))
+# # remove 29-02
+# df_co2 <- df_co2 |>
+#   filter(!(month(date) == 2 & day(date) == 29))
 
-# laod CSV data and driver data preparation
+# read list of all available CSV files from US-CAMELS
+file_list <- list.files(
+  path = "/data/archive_projects/eval_rsofun_et/data/caravan/Caravan-csv/timeseries/csv/camels/",
+  pattern = "\\.csv$",
+  full.names = TRUE
+  )
 
-timeseries <- list.files(path = "~/data_scratch/camels_timeseries/camels/csv/", pattern = "\\.csv$", full.names = T)
+# get gauge id from file name
+site_nr <- basename(file_list[1]) |>
+  str_remove("camels_") |>
+  str_remove(".csv")
 
-timeseries <- timeseries[substr(timeseries, 60, 74) %in% siteinfo$gauge_id]
+sitename <- paste0("camels_", site_nr)
+
+catchmentinfo |>
+  dplyr::filter(gauge_id == sitename) |>
+  select(lat = gauge_lat, lon = gauge_lon) |>
+  mutate(
+    canopy_height = 12, # TODO
+    reference_height = 10
+  ) |> # I select 10 beacuse the wind velocity is measured at 10 m
+  nest(site_info = c(lat, lon, canopy_height, reference_height))
+
+date_start <- lubridate::ymd(paste0(1990, "-01-01"))
+date_end <- lubridate::ymd(paste0(2020, "-12-31"))
+
+forcing <- read_csv(file_list[1]) |>
+  filter(lubridate::date(date) >= date_start, lubridate::date(date) <= date_end) |>
+  filter(!(month(date) == 2 & day(date) == 29)) |>
+  rename(
+    runoff = streamflow,
+    tmin = temperature_2m_min,
+    tmax = temperature_2m_max,
+    temp = temperature_2m_mean
+    ) |>
+  mutate(
+    netrad = surface_net_solar_radiation_mean + surface_net_thermal_radiation_mean,
+    vwind = sqrt(u_component_of_wind_10m_mean^2 + v_component_of_wind_10m_mean^2),
+    rain = ifelse(temp >= 1, total_precipitation_sum / (24 * 60 * 60), 0),
+    snow = ifelse(temp < 1, total_precipitation_sum / (24 * 60 * 60), 0),
+    co2 = NA # test
+  ) |>
+  # left_join(
+  #   df_co2,
+  #   by = join_by(date)
+  # )
+  select(date, temp, netrad, snow, rain, tmin, tmax, vwind, co2, runoff) |>
+  nest(forcing = c(date, temp, netrad, snow, rain, tmin, tmax, vwind, co2, runoff))
+
+
+timeseries <- timeseries[substr(timeseries, 60, 74) %in% catchmentinfo$gauge_id]
 
 driver_data <- NULL
 
@@ -70,36 +122,7 @@ for (i in timeseries) {
       use_gs, use_phydro, use_pml
     ))
 
-  site_info <- siteinfo[siteinfo$gauge_id == sitename, ] |>
-    select(lat, lon) |>
-    mutate(
-      canopy_height = 12, # TODO
-      reference_height = 10
-    ) |> # I select 10 beacuse the wind velocity is measured at 10 m
-    nest(site_info = c(lat, lon, canopy_height, reference_height))
 
-  forcing <- read_csv(i)
-  forcing <- forcing |>
-    filter(lubridate::date(date) >= date_start, lubridate::date(date) <= date_end) |>
-    filter(!(month(date) == 2 & day(date) == 29)) |>
-    rename(
-      rain = total_precipitation_sum,
-      runoff = streamflow,
-      tmin = temperature_2m_min,
-      tmax = temperature_2m_max,
-      temp = temperature_2m_mean,
-      vwind = u_component_of_wind_10m_max
-    ) |>
-    mutate(
-      netrad = NA,
-      snow = 0,
-      co2 = df_co2$co2,
-      # fapar = 1, # TODO
-      rain = rain / (24 * 60 * 60)
-    ) |>
-    select(date, temp, netrad, snow, rain, tmin, tmax, vwind, co2, runoff) |>
-    filter(!(lubridate::month(date) == 2 & lubridate::day(date) == 29)) |>
-    nest(forcing = c(date, temp, netrad, snow, rain, tmin, tmax, vwind, co2, runoff))
 
   tmp <- data.frame(
     sitename = sitename,
@@ -124,7 +147,7 @@ dir <- "/data/archive/wfdei_weedon_2014/data/"
 timescale <- "d"
 
 df_out <- ingest_globalfields(
-  siteinfo = siteinfo, source = source, getvars = getvars,
+  catchmentinfo = catchmentinfo, source = source, getvars = getvars,
   dir = dir, timescale = timescale, is_shapefile = T, shapefile = shapefile
 )
 
@@ -145,7 +168,7 @@ driver_data <-
 df_out <- tibble()
 
 df_out <- ingest_globalfields(
-  siteinfo = siteinfo, source = source, getvars = getvars,
+  catchmentinfo = catchmentinfo, source = source, getvars = getvars,
   dir = dir, timescale = timescale, is_shapefile = T, shapefile = shapefile
 )
 
@@ -170,7 +193,7 @@ source <- "etopo1"
 dir <- "/data/archive/etopo_NA_NA/data/"
 
 df_out <- ingest_globalfields(
-  siteinfo = siteinfo, source = source, getvars = getvars,
+  catchmentinfo = catchmentinfo, source = source, getvars = getvars,
   dir = dir, timescale = timescale, is_shapefile = T, shapefile = shapefile
 )
 

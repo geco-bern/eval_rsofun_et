@@ -5,6 +5,10 @@ library(terra)
 library(lubridate)
 library(ingestr) # uses ingestr branch 'shapefile'
 library(stringr)
+library(here)
+
+source(here("R/get_driver_bycatchment.R"))
+source(here("R/calc_vpd_td.R"))
 
 # data preparation, currently only on my folder
 
@@ -32,108 +36,45 @@ catchmentinfo <- catchmentinfo |>
     by = join_by(gauge_id)
   )
 
-# subset to those for which we have a shapefile
-catchmentinfo <- catchmentinfo[catchmentinfo$gauge_id %in% shapefile$gauge_id, ]
+# subset to those for which we have a shapefile (in fact keeps all)
+catchmentinfo <- catchmentinfo |>
+  filter(gauge_id %in% shapefile$gauge_id)
 
-# # this takes lon and lat of each catchment as its outlet
-# catchmentinfo <- catchmentinfo |>
-#   dplyr::mutate(date_start = lubridate::ymd(paste0(1990, "-01-01"))) |>
-#   dplyr::mutate(date_end = lubridate::ymd(paste0(2020, "-12-31"))) |>
-#   rename(
-#     lon = gauge_lon,
-#     lat = gauge_lat
-#   )
+## Create driver -------------------------
+### Common objects
+# Take 30 years
+date_start <- lubridate::ymd(paste0(1990, "-01-01"))
+date_end <- lubridate::ymd(paste0(2019, "-12-31"))
 
-## CO2 ---------
+### CO2 ---------
 df_co2 <- ingest_bysite(
-  sitename = "anyone",
+  sitename = "dummy",
   source = "co2_mlo",
   year_start = lubridate::year(date_start),
   year_end = lubridate::year(date_end),
   verbose = FALSE
 )
 
-# # remove 29-02
-# df_co2 <- df_co2 |>
-#   filter(!(month(date) == 2 & day(date) == 29))
-
+### Loop over files (catchments)
 # read list of all available CSV files from US-CAMELS
 file_list <- list.files(
   path = "/data/archive_projects/eval_rsofun_et/data/caravan/Caravan-csv/timeseries/csv/camels/",
   pattern = "\\.csv$",
   full.names = TRUE
-  )
+)
 
-# get gauge id from file name
-site_nr <- basename(file_list[1]) |>
-  str_remove("camels_") |>
-  str_remove(".csv")
+driver_camels <- purrr::map_dfr(
+  file_list[1:3],
+  ~ get_driver_bycatchment(.)
+)
 
-sitename <- paste0("camels_", site_nr)
-
-catchmentinfo |>
-  dplyr::filter(gauge_id == sitename) |>
-  select(lat = gauge_lat, lon = gauge_lon) |>
-  mutate(
-    canopy_height = 12, # TODO
-    reference_height = 10
-  ) |> # I select 10 beacuse the wind velocity is measured at 10 m
-  nest(site_info = c(lat, lon, canopy_height, reference_height))
-
-date_start <- lubridate::ymd(paste0(1990, "-01-01"))
-date_end <- lubridate::ymd(paste0(2020, "-12-31"))
-
-forcing <- read_csv(file_list[1]) |>
-  filter(lubridate::date(date) >= date_start, lubridate::date(date) <= date_end) |>
-  filter(!(month(date) == 2 & day(date) == 29)) |>
-  rename(
-    runoff = streamflow,
-    tmin = temperature_2m_min,
-    tmax = temperature_2m_max,
-    temp = temperature_2m_mean
-    ) |>
-  mutate(
-    netrad = surface_net_solar_radiation_mean + surface_net_thermal_radiation_mean,
-    vwind = sqrt(u_component_of_wind_10m_mean^2 + v_component_of_wind_10m_mean^2),
-    rain = ifelse(temp >= 1, total_precipitation_sum / (24 * 60 * 60), 0),
-    snow = ifelse(temp < 1, total_precipitation_sum / (24 * 60 * 60), 0),
-    co2 = NA # test
-  ) |>
-  # left_join(
-  #   df_co2,
-  #   by = join_by(date)
-  # )
-  select(date, temp, netrad, snow, rain, tmin, tmax, vwind, co2, runoff) |>
-  nest(forcing = c(date, temp, netrad, snow, rain, tmin, tmax, vwind, co2, runoff))
-
-
-timeseries <- timeseries[substr(timeseries, 60, 74) %in% catchmentinfo$gauge_id]
-
-driver_data <- NULL
-
-for (i in timeseries) {
-  sitename <- substr(i, 60, 74)
-
-  params_siml <- rsofun::p_model_drivers$params_siml[[1]] |>
-    mutate(use_gs = TRUE, use_phydro = FALSE, use_pml = TRUE) |>
-    nest(params_siml = c(
-      spinup, spinupyears, recycle, outdt, ltre, ltne, ltrd, ltnd,
-      lgr3, lgn3, lgr4,
-      use_gs, use_phydro, use_pml
-    ))
+## Complement forcing ------------
+### PPFD ------------
+### VPD  ------------
 
 
 
-  tmp <- data.frame(
-    sitename = sitename,
-    params_siml = tibble(params_siml),
-    site_info = tibble(site_info),
-    forcing = tibble(forcing)
-  )
-
-  driver_data <- rbind(driver_data, tmp)
-}
-
+xxxxxxxx
 
 
 df_out <- tibble()

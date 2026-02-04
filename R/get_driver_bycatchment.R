@@ -45,14 +45,29 @@ get_driver_bycatchment <- function(path){
       vwind = sqrt(u_component_of_wind_10m_mean^2 + v_component_of_wind_10m_mean^2),  # m s-1
       rain = ifelse(temp >= 1, total_precipitation_sum / (24 * 60 * 60), 0),  # mm d-1 -> mm s-1
       snow = ifelse(temp < 1, total_precipitation_sum / (24 * 60 * 60), 0),  # mm d-1 -> mm s-1
+      fapar = NA,
+      ccov = NA
     ) |>
     left_join(
       df_co2 |>
         select(-sitename),
       by = join_by(date)
     ) |>
-    select(date, temp, netrad, snow, rain, tmin, tmax, vwind, co2, runoff) |>
-    nest(forcing = c(date, temp, netrad, snow, rain, tmin, tmax, vwind, co2, runoff))
+    select(date, temp, vpd, ppfd, netrad, patm, snow, rain, tmin, tmax, vwind, fapar, co2, ccov, runoff) |>
+    nest(forcing = c(date, temp, vpd, ppfd, netrad, patm, snow, rain, tmin, tmax, vwind, fapar, co2, ccov, runoff))
+
+  # determine years for which runoff data is available (use only complete years)
+  years_avl_runoff <- forcing |>
+    unnest(forcing) |>
+    mutate(year = year(date)) |>
+    group_by(year) |>
+    summarise(n_runoffdata = sum(!is.na(runoff))) |>
+    filter(n_runoffdata >= 365) |>
+    pull(year)
+
+  # subset to years will full runoff data availability
+  forcing <- forcing |>
+    mutate(forcing = map(forcing, ~filter(., year(date) %in% years_avl_runoff)))
 
   ### Simulation parameters ------------
   params_siml <- rsofun::p_model_drivers$params_siml[[1]] |>

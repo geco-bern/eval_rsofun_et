@@ -6,6 +6,7 @@ library(lubridate)
 library(ingestr) # uses ingestr branch 'shapefile'
 library(stringr)
 library(here)
+library(purrr)
 
 source(here("R/get_driver_bycatchment.R"))
 source(here("R/calc_vpd_td.R"))
@@ -42,9 +43,10 @@ catchmentinfo <- catchmentinfo |>
 
 ## Create driver -------------------------
 ### Common objects
-# Take 30 years
-date_start <- lubridate::ymd(paste0(1990, "-01-01"))
-date_end <- lubridate::ymd(paste0(2019, "-12-31"))
+# Take 20 years, but subset to years for which runoff data is available, done
+# in get_driver_bycatchment().
+date_start <- lubridate::ymd(paste0(2001, "-01-01"))
+date_end <- lubridate::ymd(paste0(2020, "-12-31"))
 
 ### CO2 ---------
 df_co2 <- ingest_bysite(
@@ -68,10 +70,7 @@ driver_camels <- purrr::map_dfr(
   ~ get_driver_bycatchment(.)
 )
 
-## Complement forcing ------------
-### PPFD ------------
-### VPD  ------------
-
+visdat::vis_miss(driver_camels$forcing[[2]])
 
 
 xxxxxxxx

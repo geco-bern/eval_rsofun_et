@@ -1,4 +1,4 @@
-get_driver_bycatchment <- function(path){
+get_driver_bycatchment <- function(path, catchmentinfo){
 
   # get gauge id from file name
   site_nr <- basename(path) |>
@@ -12,7 +12,11 @@ get_driver_bycatchment <- function(path){
     dplyr::filter(gauge_id == sitename) |>
 
     # this takes lon and lat of each catchment as its outlet
-    select(lat = gauge_lat, lon = gauge_lon) |>
+    select(
+      lat = gauge_lat,
+      lon = gauge_lon,
+      elv = ele_mt_sav
+      ) |>
 
     # selected 10 because the wind velocity is measured at 10 m
     mutate(
@@ -21,7 +25,7 @@ get_driver_bycatchment <- function(path){
     ) |>
 
     # nest to make rsofun driver-like
-    nest(site_info = c(lat, lon, canopy_height, reference_height))
+    nest(site_info = c(lat, lon, elv, canopy_height, reference_height))
 
   ### Forcing time series ---------
   # interpret variables and convert units. CARAVAN variables described in Tab. 1

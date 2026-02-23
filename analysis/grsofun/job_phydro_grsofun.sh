@@ -20,7 +20,8 @@ PREFIX=PM-S0
 START=2000
 END=2018
 
-export GRSOFUN_DIR="$HOME/grsofun" # grsofun repository needs to be cloned into Home
+export GRSOFUN_DIR="$HOME/grsofun" # grsofun repository needs to be cloned into Home 
+# Currently all changes needed are still in git@github.com:maloan/grsofun.git, not in main yet
 export R_LIBS_USER="$HOME/R/x86_64-pc-linux-gnu-library/4.4" # R library
 
 # --- rsofun repo (phydro branch) ----------------------------------------------

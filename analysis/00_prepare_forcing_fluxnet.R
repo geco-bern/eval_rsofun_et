@@ -12,16 +12,17 @@ library(ggplot2)
 source(here("R/create_table_latex.R"))
 
 ## Read external files ---------------------------------------------------------
-# These files are all part of the Zenodo release
-driver <- read_rds("/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
-# driver <- read_rds("~/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
+# FluxDataKit v3.4 Zenodo release files.
+# Place the three files below inside data/fluxnet/ before running this script.
 
-fdk_site_info <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
-# fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
+driver <- read_rds(here("data/fluxnet/rsofun_driver_data_v3.4.2.rds"))
+
+fdk_site_info <- read_csv(here("data/fluxnet/fdk_site_info.csv"),
+                          show_col_types = FALSE)
 
 # data quality filter info
-fdk_filter <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
-# fdk_filter <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_fullyearsequence.csv")
+fdk_filter <- read_csv(here("data/fluxnet/fdk_site_fullyearsequence.csv"),
+                       show_col_types = FALSE)
 
 ## Select sites ----------------------------------------------------------------
 # # remove sites with missing observed GPP or LE in driver data
@@ -44,13 +45,8 @@ sites <- fdk_site_info |>
   filter(!drop_gpp & !drop_le) |>  # where no full year sequence was found
   filter(nyears_gpp >= 1, nyears_le >= 1)
 
-  # # retain only those for which we have driver data (after dropping those with missing GPP and LE)
-  # filter(sitename %in% driver$sitename)
 
-# determine sites used for model calibration (training):
-# must have minimum length of good-quality time series sequence
-# sample one site per stratum, defined based on Koeppen-Geiger climate and IGBP land cover class
-set.seed(123)
+
 sites_train <- sites |>
   mutate(strata = interaction(koeppen_code, igbp_land_use, drop = TRUE)) |>
   filter(nyears_gpp & nyears_le > 12) |>
@@ -87,7 +83,7 @@ driver <- driver |>
         sitename,
         year_start = year_start_gpp,
         year_end = year_end_gpp
-        ),
+      ),
     by = join_by(sitename)
   ) |>
   mutate(year = year(date)) |>
@@ -138,11 +134,11 @@ df_sites_metainfo <- driver |>
     ~{. |>
         mutate(year = year(date)) |>
         summarise(year_start = min(year), year_end = max(year))
-        })) |>
+    })) |>
   mutate(
     year_start = map_int(year_start_end, "year_start"),
     year_end = map_int(year_start_end, "year_end")
-    ) |>
+  ) |>
   select(-params_siml, -site_info, -forcing, -year_start_end) |>
   left_join(
     sites |>
@@ -209,21 +205,21 @@ gg_sitedensity <- ggplot() +
   # ) +
 
   # # discrete-looking color scale
-  # scale_fill_stepsn(
-  #   name = "Sites\ncount",
-  #   colours = viridis::viridis(5, option = "D"),
-  #   breaks  = seq(0, 5),
-  #   # limits  = c(0, 100),
-  #   na.value = "transparent"
-  # ) +
+# scale_fill_stepsn(
+#   name = "Sites\ncount",
+#   colours = viridis::viridis(5, option = "D"),
+#   breaks  = seq(0, 5),
+#   # limits  = c(0, 100),
+#   na.value = "transparent"
+# ) +
 
-  # color (count) scale
-  scale_fill_viridis_c(
-    name = "Sites\ncount",
-    option = "A",
-    # trans = "sqrt",
-    na.value = "transparent"
-  ) +
+# color (count) scale
+scale_fill_viridis_c(
+  name = "Sites\ncount",
+  option = "A",
+  # trans = "sqrt",
+  na.value = "transparent"
+) +
 
   # coordinate system (preserves lat/lon aspect)
   coord_sf(
@@ -243,118 +239,3 @@ gg_sitedensity <- ggplot() +
   )
 
 gg_sitedensity
-
-# xxxxxxxxxxxxxxxx
-#
-# fdk_site_info <- fdk_site_info[fdk_site_info$igbp_land_use != "CRO" &
-#                                  fdk_site_info$igbp_land_use != "WET", ]
-#
-# ## GPP: Good year sequence filter
-# fdk_filter <- fdk_filter[fdk_filter$drop_gpp == "FALSE", ]
-#
-# driver <- driver[which(driver$sitename %in% fdk_site_info$sitename &
-#                          driver$sitename %in% fdk_filter$sitename), ]
-#
-# fdk_site_info <- fdk_site_info[which(fdk_site_info$sitename %in% driver$sitename), ]
-#
-# fdk_filter <- fdk_filter[which(fdk_filter$sitename %in% driver$sitename &
-#                                  fdk_filter$sitename %in% fdk_site_info$sitename), ]
-#
-# driver_forcing <- driver |>
-#   select(sitename, forcing) |>
-#   unnest(cols = c(forcing))
-#
-# driver <- driver_forcing |>
-#   left_join(
-#     fdk_filter |>
-#       select(
-#         sitename,
-#         year_start = year_start_gpp,
-#         year_end = year_end_gpp
-#       ),
-#     by = join_by(sitename)
-#   ) |>
-#   mutate(year = year(date)) |>
-#   filter(year >= year_start & year <= year_end) |>
-#   select(-year_start, -year_end, -year) |>
-#   group_by(sitename) |>
-#   nest() |>
-#   left_join(
-#     driver |>
-#       select(
-#         sitename,
-#         site_info,
-#         params_siml
-#       ),
-#     by = join_by(sitename)
-#   ) |>
-#   rename(forcing = data) |>
-#   select(sitename, params_siml, site_info, forcing) |>
-#   ungroup()
-#
-#
-# ## LE: Good year sequence filter
-# fdk_filter <- fdk_filter[fdk_filter$drop_le == "FALSE", ]
-#
-# driver <- driver[which(driver$sitename %in% fdk_site_info$sitename &
-#                          driver$sitename %in% fdk_filter$sitename), ]
-#
-# fdk_site_info <- fdk_site_info[which(fdk_site_info$sitename %in% driver$sitename), ]
-#
-# fdk_filter <- fdk_filter[which(fdk_filter$sitename %in% driver$sitename &
-#                                  fdk_filter$sitename %in% fdk_site_info$sitename), ]
-#
-# driver_forcing <- driver |>
-#   select(sitename, forcing) |>
-#   unnest(cols = c(forcing))
-#
-# driver <- driver_forcing |>
-#   left_join(
-#     fdk_filter |>
-#       select(
-#         sitename,
-#         year_start = year_start_le,
-#         year_end = year_end_le
-#       ),
-#     by = join_by(sitename)
-#   ) |>
-#   mutate(year = year(date)) |>
-#   filter(year >= year_start & year <= year_end) |>
-#   select(-year_start, -year_end, -year) |>
-#   group_by(sitename) |>
-#   nest() |>
-#   left_join(
-#     driver |>
-#       select(
-#         sitename,
-#         site_info,
-#         params_siml
-#       ),
-#     by = join_by(sitename)
-#   ) |>
-#   rename(forcing = data) |>
-#   select(sitename, params_siml, site_info, forcing) |>
-#   ungroup()
-#
-# fdk_site_info <- fdk_site_info[which(fdk_site_info$sitename %in% driver$sitename), ]
-#
-# good_sites <- readLines("../my_stuff/good_sites.txt")
-#
-# driver <- driver[driver$sitename %in% good_sites, ]
-#
-# fdk_site_info <- fdk_site_info[which(fdk_site_info$sitename %in% driver$sitename), ]
-#
-# driver <- driver |>
-#   unnest(params_siml) |>
-#   mutate(
-#     use_gs = TRUE,
-#     use_phydro = FALSE,
-#     use_pml = TRUE,
-#     is_global = F
-#   ) |>
-#   group_by(sitename) |>
-#   nest(params_siml = c(
-#     spinup, spinupyears, recycle, outdt, ltre, ltne, ltrd, ltnd, lgr3, lgn3, lgr4,
-#     use_gs, use_phydro, use_pml, is_global
-#   ))
-

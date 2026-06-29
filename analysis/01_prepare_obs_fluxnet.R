@@ -1,33 +1,23 @@
 # Observational data preparation -----------------------------------------------
-
 # Adopted from sofunCalVal/data-raw/01_generate_rsofun_eval_data.R
-
-# This should generate something like in data/obs_eval_fluxnet2015.Rdata
-# tmp: read as template
-# load(here::here("data/obs_eval_fluxnet2015.Rdata"))
-
-# obs_eval is a list, containing data frames aggregated to different levels:
-# - annual: "adf"
-# - monthly: "mdf"
-# - x-daily: "xdf"
-# - daily: "ddf"
 #
-# and a list element containing the breaks (dates) used for the x-daily
-
-# each data frame is organised with sites along rows, has columns for multiple
-# site meta info, and a column 'data' with time series nested.
-
-# site meta info are:
-# lon, lat, elv, classid, c4, whc, koeppen_code, igbp_land_use, plant_functional_type
-
-# columns in data are:
-# date, (gpp, gpp_qc,) le, le_qc
+# Generates obs_eval: a list of data frames aggregated to different temporal
+# resolutions (annual "adf", monthly "mdf", x-daily "xdf", daily "ddf"),
+# plus a "breaks" element for the x-daily aggregation.
+#
+# Each data frame has sites along rows, site meta-info columns, and a nested
+# "data" column with time series (date, gpp, gpp_qc, le, le_qc).
+#
+# Outputs:
+#   data/obs_eval_fluxnet.rds  – FLUXNET site-level observed GPP and LE
+#   data/obs_eval_camels.rds   – CAMELS catchment-level AET
 
 ## Library and data loading ----------------------------------------------------
 library(tidyverse)
 
 ## FLUXNET ---------------------------------------------------------------------
-fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
+fdk_site_info <- read_csv(here::here("data/fluxnet/fdk_site_info.csv"),
+                          show_col_types = FALSE)
 
 # Read rsofun driver data, created with applying additional filters in
 # analysis/00_prepare_forcing_fluxnet.R

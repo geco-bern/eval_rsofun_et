@@ -35,16 +35,16 @@ theme_set(
 )
 
 
-driver_data <- readRDS("/data/archive_projects/eval_rsofun_et/data/camels_driver.rds")
+driver_data <- readRDS(here("data/driver_camels.rds"))
 
-meta_info  <- read_csv("./data/camels/camels_site_info.csv")
+meta_info  <- read_csv(here("data/camels/camels_site_info.csv"), show_col_types = FALSE)
 
 vector_path <- "./data/camels/camels_basin_shapes.shp"
 
 shapefile <- terra::vect(vector_path)
 
 
-site_info <- read_csv("./data/camels/attributes_hydroatlas_camels.csv")
+site_info <- read_csv(here("data/camels/attributes_hydroatlas_camels.csv"), show_col_types = FALSE)
 
 # filter by degree of regulation (0 = no human influence)
 site_info <- site_info[site_info$dor_pc_pva == 0,]
@@ -144,7 +144,7 @@ ggsave(plot = metrics_plot, paste0("./fig/","metrics_plot.svg"),device = "svg", 
 
 # Budyko relationship
 
-climates <- read_csv("./data/camels/long_koeppen_camels.csv")
+climates <- read_csv(here("data/camels/long_koeppen_camels.csv"), show_col_types = FALSE)
 
 climates <- climates[climates$sitename %in% driver_data$sitename,]
 
@@ -153,17 +153,17 @@ max_climates <- climates |>
   filter(fraction == max(fraction))
 
 df_budyko <- left_join(output |>
-  unnest(data) |>
-  group_by(sitename, year(date)) |>
-  summarise(mod_aet = sum(aet),
-            pet = sum(pet),
-            cond = sum(cond)) |>
-  group_by(sitename) |>
-  summarise(mod_aet = mean(mod_aet),
-            pet = mean(pet),
-            cond = mean(cond)),
-  multi_year, by = "sitename"
-  ) |>
+                         unnest(data) |>
+                         group_by(sitename, year(date)) |>
+                         summarise(mod_aet = sum(aet),
+                                   pet = sum(pet),
+                                   cond = sum(cond)) |>
+                         group_by(sitename) |>
+                         summarise(mod_aet = mean(mod_aet),
+                                   pet = mean(pet),
+                                   cond = mean(cond)),
+                       multi_year, by = "sitename"
+) |>
   mutate(rain_2 = rain + cond)
 
 df_budyko <- left_join(df_budyko,
@@ -340,7 +340,7 @@ df_budyko <- left_join(driver,output2, by = c("sitename","date")) |>
   summarise(pet = mean(pet, na.rm = T),
             aet = mean(aet, na.rm = T),
             rain = mean(rain, na.rm = T))# |>
-  #mutate(aet = aet / 10000)
+#mutate(aet = aet / 10000)
 
 df_budyko <- left_join(df_budyko,
                        max_climates |> select(sitename, koeppen_code),
@@ -448,12 +448,12 @@ ggmap <- ggplot() +
   coord_sf(expand = FALSE) +
   theme_minimal() +
   theme(
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        panel.border = element_blank(),
-        panel.background = element_blank(),
-        legend.position = "none" # disable it if you want to check the values
-        )
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    legend.position = "none" # disable it if you want to check the values
+  )
 
 print(ggmap)
 

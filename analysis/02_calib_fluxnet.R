@@ -5,14 +5,9 @@ library(tidyr)
 library(readr)
 library(lubridate)
 library(purrr)
-# library(remotes)
 library(terra)
 library(here)
 
-# remotes::install_github(
-#   "geco-bern/rsofun",
-#   ref = "phydro"
-# )
 library(rsofun)
 
 source(here("R/modified_cost_likelihood_pmodel.R"))
@@ -77,7 +72,7 @@ driver_pm_s0 <- driver |>
       use_phydro = FALSE,
       use_pml = TRUE,
       is_global = FALSE
-      )))
+    )))
 
 # Run the calibration for GPP data
 calib_output <- calib_sofun(
@@ -90,7 +85,6 @@ calib_output <- calib_sofun(
 )
 
 write_rds(calib_output, here("data/calib_output_pm_s0.rds"))
-# write_rds(calib_output, here("data/global_calib_PM_new_whc_no_beta.rds"))
 
 ## Setup PM --------------------------------------------------------------------
 driver_pm <- driver |>
@@ -104,8 +98,9 @@ driver_pm <- driver |>
       is_global = FALSE
     )))
 
-# Get 2 m-WHC for file
-rasta <- rast("/data/archive_projects/eval_rsofun_et/data/whc_2m.nc")
+# Get 2m-WHC raster
+# File must be present at data/whc_2m.nc (not in version control; workstation only)
+rasta <- rast(here("data/whc_2m.nc"))
 
 df <- driver_pm |>
   select(sitename,  site_info) |>
@@ -148,7 +143,6 @@ calib_output <- calib_sofun(
 )
 
 write_rds(calib_output, here("data/calib_output_pm.rds"))
-# write_rds(calib_output, here("data/global_calib_PM_old_WHC_no_beta.rds"))
 
 ## Setup PT --------------------------------------------------------------------
 driver_pm <- read_rds(here("data/driver_pm.rds"))
@@ -175,4 +169,3 @@ calib_output <- calib_sofun(
 )
 
 write_rds(calib_output, here("data/calib_output_pt.rds"))
-# write_rds(calib_output, "../my_stuff/global_calib_PT_no_beta.rds")

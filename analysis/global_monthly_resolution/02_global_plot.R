@@ -1,22 +1,18 @@
 # analysis/07_global_plot.R
 #
 # PURPOSE:
-#   Produce all global-scale evaluation figures:
-#     a) Latitudinal profile of annual AET -- P-model vs. ERA5/PML/FLUXCOM ensemble
-#     b) Global map of P-model mean annual AET
-#     c) Site-level RMSE and R2 boxplots (P-model, ERA5, PML, FLUXCOM vs. observed)
+#   Produce all global-scale figures for the evaluation of gRSOFUN ET output:
+#     a) Latitudinal profile of annual AET — P-model vs. multi-product ensemble
+#     b) Global AET map (P-model annual mean)
+#     c) RMSE and R² boxplots (site-level, one box per reference product)
 #
-# REQUIRES:
-#   processed_global_data/global_eval_dataset.rds  (from analysis/06_processed_global_data.R)
-#   R/global_legend.R                               (plot_discrete_cbar helper)
+#   Requires: analysis/06_processed_global_data.R to have been run first, or
+#   the saved evaluation dataset to be present at
+#   processed_global_data/global_eval_dataset.rds.
 #
-# All ET values are in mm d-1. Annual sums are computed here by multiplying
-# each monthly mean by the actual number of days in that month.
-#
-# OUTPUTS (saved to fig/):
-#   lateral_profile.svg
-#   global_aet_map.svg
-#   global_metrics_aet.svg
+# All ET values are in mm d-1 (monthly mean). Annual sums are derived here
+# by multiplying monthly means by the number of days in each month and
+# summing over the year.
 #
 # AUTHORS: Grossi et al. (in prep.)
 
@@ -25,61 +21,74 @@ library(tidyr)
 library(lubridate)
 library(ggplot2)
 library(purrr)
+library(readr)
 library(here)
 library(cowplot)
 library(scico)
 library(rnaturalearth)
 
-source(here("R/global_legend.R"))   # provides plot_discrete_cbar()
-
-# Study period
+# ── Study period ──────────────────────────────────────────────────────────
 YEAR_START <- 1997L
 YEAR_END   <- 2011L
 
-# Days-in-month lookup (leap years ignored, consistent across products)
-days_lut <- tibble(
+# ── Days-in-month lookup (ignoring leap years — consistent with prior work) ──
+days_in_month_df <- tibble(
   month = 1:12,
   days  = c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 )
 
 # =========================================================================
-# 0. Load evaluation dataset
+# 0. Load evaluation dataset  --------------------------------------------
 # =========================================================================
 
 eval_path <- here("processed_global_data", "global_eval_dataset.rds")
 
-if (!file.exists(eval_path)) {
-  message("Evaluation dataset not found -- running 06_processed_global_data.R ...")
-  source(here("analysis", "06_b_build_evaluation_dataset.R"))
+if (file.exists(eval_path)) {
+  message("Loading pre-assembled evaluation dataset ...")
+  eval_ds <- readRDS(eval_path)
+} else {
+  message("Dataset not found — running 06_processed_global_data.R ...")
+  source(here("analysis", "06_processed_global_data.R"))
+  eval_ds <- readRDS(eval_path)
 }
-
-eval_ds <- readRDS(eval_path)
 
 global_products <- eval_ds$global_products   # {source, date, data<lon,lat,aet>}
 p_model         <- eval_ds$p_model           # {sitename, year, month, date, aet, lon, lat, fland}
 monthly_site_df <- eval_ds$fluxnet_monthly   # {sitename, date, obs_aet, era5, pml, fluxcom, rsofun}
 
 # =========================================================================
-# 1. Latitudinal profile
+# 1. Latitudinal profile  ------------------------------------------------
 # =========================================================================
-# Median and 33rd/66th percentile of annual AET [mm yr-1] by latitude band,
-# pooled across all longitudes and years (1997-2011).
-# Annual AET = sum(monthly_mean_mm_d * days_in_month) over 12 months.
+#   For each latitude band, compute median and 33rd/66th percentile of
+#   annual AET [mm yr-1] across all longitudes and years (1997–2011).
+#   Annual AET = sum(monthly_mean_mm_d * days_in_month) over 12 months.
+# =========================================================================
 
 message("Building latitudinal profile ...")
 
-# ── Reference ensemble: annual sums per grid cell x year ─────────────────
+# ── Reference products: annual sums per grid cell × year ─────────────────
 annual_refs <- global_products |>
-  mutate(year  = year(date),
-         month = month(date)) |>
-  left_join(days_lut, by = "month") |>
-  unnest(data) |>
-  mutate(aet_mm = aet * days,
-         lat    = round(lat, 4)) |>
+  mutate(
+    year  = year(date),
+    month = month(date)
+  ) |>
+  left_join(days_in_month_df, by = "month") |>
+  unnest(data) |>                              # lon, lat, aet [mm d-1]
+  mutate(
+    aet_mm = aet * days,                       # mm month-1 contribution
+    lat    = round(lat, 4)                     # avoid floating-point joins
+  ) |>
   group_by(source, year, lon, lat) |>
   summarise(ann_aet = sum(aet_mm, na.rm = TRUE), .groups = "drop")
 
-# Pool the three products as an ensemble (per-cell mean across products)
+# Snap ERA5 latitudes to 0.05° grid edge (product uses 0.1° grid, some
+# cells land between 0.5° PML/FLUXCOM nodes after resampling — align here)
+annual_refs <- annual_refs |>
+  mutate(lat = ifelse(lat < 0,
+                      as.integer(20 * lat + 1) / 20,
+                      as.integer(20 * lat + 2) / 20))
+
+# Pool all three products (treat them as an ensemble)
 lat_profile_refs <- annual_refs |>
   filter(lat > -60) |>
   group_by(year, lon, lat) |>
@@ -93,11 +102,11 @@ lat_profile_refs <- annual_refs |>
   ) |>
   mutate(Setup = "Reference ensemble\n(ERA5 / PML / FLUXCOM)")
 
-# ── P-model: annual sums per grid cell x year ────────────────────────────
+# ── P-model: annual sums per grid cell × year ────────────────────────────
 lat_profile_pm <- p_model |>
   filter(lat < 83.75, lat > -55.75) |>
-  left_join(days_lut, by = "month") |>
-  mutate(aet_mm = aet * days) |>
+  left_join(days_in_month_df, by = "month") |>
+  mutate(aet_mm = aet * days) |>              # mm d-1 × days = mm month-1
   group_by(year, lon, lat) |>
   summarise(ann_aet = sum(aet_mm, na.rm = TRUE), .groups = "drop") |>
   group_by(lat) |>
@@ -122,14 +131,14 @@ lateral_profile <- ggplot(df_profile) +
   ) +
   scale_colour_manual(
     values = c(
-      "P-model (gRSOFUN)"                          = "royalblue",
+      "P-model (gRSOFUN)"                        = "royalblue",
       "Reference ensemble\n(ERA5 / PML / FLUXCOM)" = "black"
     ),
     name = NULL
   ) +
   scale_fill_manual(
     values = c(
-      "P-model (gRSOFUN)"                          = "royalblue",
+      "P-model (gRSOFUN)"                        = "royalblue",
       "Reference ensemble\n(ERA5 / PML / FLUXCOM)" = "black"
     ),
     name = NULL
@@ -151,27 +160,28 @@ lateral_profile <- ggplot(df_profile) +
 print(lateral_profile)
 
 # =========================================================================
-# 2. Global AET map (P-model)
+# 2. Global AET map (P-model)  -------------------------------------------
 # =========================================================================
 
 message("Building global AET map ...")
 
 map_world <- p_model |>
-  left_join(days_lut, by = "month") |>
-  mutate(aet_mm = aet * days) |>
+  left_join(days_in_month_df, by = "month") |>
+  mutate(aet_mm = aet * days) |>               # mm month-1
   group_by(lon, lat, year) |>
   summarise(ann_aet = sum(aet_mm, na.rm = TRUE), .groups = "drop") |>
   group_by(lon, lat) |>
-  summarise(aet = mean(ann_aet, na.rm = TRUE), .groups = "drop") |>
+  summarise(aet = mean(ann_aet, na.rm = TRUE), .groups = "drop") |>  # multi-year mean
   drop_na()
 
-# Colour palette: lapaz reversed
+# ── Colour palette (lapaz, reversed for water) ───────────────────────────
 lapaz_raw <- scico_palette_data("lapaz")
 lapaz_rev <- lapaz_raw[nrow(lapaz_raw):1, ]
 lapaz_rev$hex <- rgb(lapaz_rev$r, lapaz_rev$g, lapaz_rev$b)
 
 find_closest_color <- function(value, palette) {
-  palette[which.min(abs(seq(0, 1, length.out = length(palette)) - value))]
+  idx <- which.min(abs(seq(0, 1, length.out = length(palette)) - value))
+  palette[idx]
 }
 
 map_world <- map_world |>
@@ -180,19 +190,20 @@ map_world <- map_world |>
     hex  = map_chr(norm, find_closest_color, palette = lapaz_rev$hex)
   )
 
+# ── Spatial context layers ────────────────────────────────────────────────
 layer_coast <- ne_coastline(scale = 110, returnclass = "sf")
 layer_ocean <- ne_download(
-  scale       = 110,
-  type        = "ocean",
-  category    = "physical",
+  scale    = 110,
+  type     = "ocean",
+  category = "physical",
   returnclass = "sf",
-  destdir     = here("data")
+  destdir  = here("data")
 )
 
 ggmap <- ggplot() +
   geom_raster(data = map_world, aes(x = lon, y = lat, fill = hex)) +
   scale_fill_identity() +
-  geom_sf(data = layer_ocean, colour = NA,      fill      = "azure3") +
+  geom_sf(data = layer_ocean, colour = NA,      fill  = "azure3") +
   geom_sf(data = layer_coast, colour = "black", linewidth = 0.1) +
   labs(x = NULL, y = NULL) +
   theme_classic(base_size = 11) +
@@ -205,18 +216,21 @@ ggmap <- ggplot() +
     plot.background = element_rect(fill = "white", colour = NA)
   )
 
+# ── Discrete legend ───────────────────────────────────────────────────────
+source(here("my_stuff", "global_legend.R"))   # provides plot_discrete_cbar()
+
 breaks     <- seq(0, 2750, length.out = 11)
 pal_breaks <- lapaz_rev$hex[round(seq(1, 256, length.out = 11))]
 
 gglegend <- plot_discrete_cbar(
-  breaks           = breaks,
-  colors           = pal_breaks,
-  legend_title     = expression(paste("Annual AET (mm yr"^{-1}, ")")),
+  breaks          = breaks,
+  colors          = pal_breaks,
+  legend_title    = expression(paste("Annual AET (mm yr"^{-1}, ")")),
   legend_direction = "vertical",
-  width            = 0.03,
-  font_size        = 3,
-  expand_size_y    = 0.5,
-  spacing          = "constant"
+  width           = 0.03,
+  font_size       = 3,
+  expand_size_y   = 0.5,
+  spacing         = "constant"
 )
 
 global_merged <- cowplot::plot_grid(
@@ -228,11 +242,13 @@ global_merged <- cowplot::plot_grid(
 print(global_merged)
 
 # =========================================================================
-# 3. Site-level evaluation metrics
+# 3. Site-level evaluation metrics  -------------------------------------
 # =========================================================================
 
-message("Computing site-level RMSE and R2 ...")
+message("Computing site-level RMSE and R² ...")
 
+# All values are in mm d-1 — no unit conversion needed
+# RMSE: root-mean-squared error per observation
 rmse_long <- monthly_site_df |>
   transmute(
     PML     = sqrt((obs_aet - pml)^2),
@@ -243,6 +259,7 @@ rmse_long <- monthly_site_df |>
   pivot_longer(everything(), names_to = "model", values_to = "RMSE") |>
   drop_na()
 
+# R²: per-site correlation, then pooled across sites
 r2_long <- monthly_site_df |>
   drop_na() |>
   group_by(sitename) |>
@@ -262,8 +279,10 @@ model_order <- c("P_model", "PML", "FLUXCOM", "ERA5")
 rmse_plot <- ggplot(rmse_long, aes(x = model, y = RMSE)) +
   geom_boxplot(outlier.size = 0.6, fill = "grey92") +
   scale_x_discrete(limits = model_order) +
-  labs(x = NULL,
-       y = expression(paste("RMSE (mm d"^{-1}, ")"))) +
+  labs(
+    x = NULL,
+    y = expression(paste("RMSE (mm d"^{-1}, ")"))
+  ) +
   theme_classic(base_size = 11) +
   theme(aspect.ratio = 1.5)
 
@@ -271,7 +290,10 @@ r2_plot <- ggplot(r2_long, aes(x = model, y = R2)) +
   geom_boxplot(outlier.size = 0.6, fill = "grey92") +
   scale_x_discrete(limits = model_order) +
   scale_y_continuous(limits = c(0, 1)) +
-  labs(x = NULL, y = expression(R^2)) +
+  labs(
+    x = NULL,
+    y = expression(R^2)
+  ) +
   theme_classic(base_size = 11) +
   theme(aspect.ratio = 1.5)
 
@@ -284,7 +306,7 @@ combined_metrics <- cowplot::plot_grid(
 print(combined_metrics)
 
 # =========================================================================
-# 4. Save figures
+# 4. Save figures  -------------------------------------------------------
 # =========================================================================
 
 fig_dir <- here("fig")
@@ -293,19 +315,28 @@ dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
 ggsave(
   filename = file.path(fig_dir, "lateral_profile.svg"),
   plot     = lateral_profile,
-  device   = "svg", dpi = 300, width = 8.5, height = 13
+  device   = "svg",
+  dpi      = 300,
+  width    = 8.5,
+  height   = 13
 )
 
 ggsave(
   filename = file.path(fig_dir, "global_aet_map.svg"),
   plot     = global_merged,
-  device   = "svg", dpi = 300, width = 16.5, height = 7
+  device   = "svg",
+  dpi      = 300,
+  width    = 16.5,
+  height   = 7
 )
 
 ggsave(
   filename = file.path(fig_dir, "global_metrics_aet.svg"),
   plot     = combined_metrics,
-  device   = "svg", dpi = 300, width = 16.5, height = 7
+  device   = "svg",
+  dpi      = 300,
+  width    = 16.5,
+  height   = 7
 )
 
-message("\nFigures saved to: ", fig_dir)
+message("\nFigures saved to ", fig_dir)

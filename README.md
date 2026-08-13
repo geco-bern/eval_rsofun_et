@@ -95,6 +95,8 @@ Output figures are saved here (`.svg` and `.pdf`).
 
 ### processed_global_data/
 
+**Target path:** `~/data/archive/eval_rsofun_et/processed_global_data/`
+
 Stores the processed outputs of `analysis/06_a_process_global_data.R` —
 one `.rds` file per product, each a nested tibble with monthly mean ET in mm d⁻¹
 at 0.5° × 0.5° resolution:
@@ -182,7 +184,7 @@ Unzip the archive and move the resulting `.nc` file to the target path above.
 **Period downloaded:** 1997–2011  
 **Format:** NetCDF (one file per year)  
 **Product used:** RS+METEO ensemble mean  
-**Target path:** `/data/archive_projects/eval_rsofun_et/FLUXCOM/ensemble/`
+**Target path:** `/data/archive/eval_rsofun_et/FLUXCOM/ensemble/`
 
 #### Registration and access
 
@@ -229,7 +231,7 @@ Adjust the remote path as indicated in the access instructions you receive.
 **Native resolution:** 0.5°  
 **Period downloaded:** 1997–2011 (data before 1997 have quality issues)  
 **Format:** NetCDF (one file per year)  
-**Target path:** `/data/archive_projects/eval_rsofun_et/PML/data/`
+**Target path:** `/data/archive/eval_rsofun_et/PML/data/`
 
 #### Reference
 

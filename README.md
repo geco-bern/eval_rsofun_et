@@ -10,6 +10,7 @@ This repository implements the analysis of Grossi et al. (in prep.).
   - [R](#r)
   - [fig](#fig)
   - [data-raw](#data-raw)
+  - [processed](#processed_global_data)
 
 ---
 
@@ -45,3 +46,7 @@ Output figures are saved here.
 
 Contains the scripts used to generate the data inside the `data/` folder.  
 These scripts won’t work directly, since the data are only available on the workstation.  
+
+### processed_global_data
+
+

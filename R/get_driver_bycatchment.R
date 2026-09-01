@@ -71,7 +71,7 @@ get_driver_bycatchment <- function(path, catchmentinfo){
 
   # subset to years will full runoff data availability
   forcing <- forcing |>
-    mutate(forcing = map(forcing, ~filter(., year(date) %in% years_avl_runoff)))
+    mutate(forcing = purrr::map(forcing, ~dplyr::filter(., year(date) %in% years_avl_runoff)))
 
   ### Simulation parameters ------------
   params_siml <- rsofun::p_model_drivers$params_siml[[1]] |>

@@ -11,57 +11,51 @@ library(scico)
 library(viridis)
 library(maps)
 library(sf) # only used to plot
+library(here)
 
+source(here("R/main_plus_metrics.R"))
+source(here("R/get_stats.R"))
+source(here("R/analyse_modobs2.R"))
+source(here("R/align_events.R"))
+source(here("R/eval_droughtresponse.R"))
+source(here("R/heatscatter_dependencies.R"))
+source(here("R/create_obs_eval.R"))
+source(here("R/global_legend.R"))
 
-source("./R/main_plus_metrics.R")
-source("./R/get_stats.R")
-source("./R/analyse_modobs2.R")
-source("./R/align_events.R")
-source("./R/eval_droughtresponse.R")
-source("./R/heatscatter_dependencies.R")
-source("./R/create_obs_eval.R")
-source("./R/global_legend.R")
+# driver created with analysis/04_create_camels_driver.R
+driver_data <- read_rds("/data/archive_projects/eval_rsofun_et/data/driver_camels.rds")
 
-scaling_factor <- 1.1
+# driver created with analysis/04_create_camels_driver.R
+catchmentinfo  <- read_csv(here("data/catchmentinfo_camels.csv"))
 
-theme_set(
-  theme_minimal(base_size = 10) +
-    theme(
-      axis.title  = element_text(size = 10),
-      axis.text   = element_text(size = 10),
-      legend.title = element_text(size = 10),
-      legend.text  = element_text(size = 10)
-    )
-)
-
-
-driver_data <- readRDS("/data/archive_projects/eval_rsofun_et/data/camels_driver.rds")
-
-meta_info  <- read_csv("./data/camels/camels_site_info.csv")
-
-vector_path <- "./data/camels/camels_basin_shapes.shp"
-
+# read catchment outlines
+vector_path <- "/data/archive_projects/eval_rsofun_et/data/caravan/Caravan-csv/shapefiles/camels/camels_basin_shapes.shp"
 shapefile <- terra::vect(vector_path)
 
 
 site_info <- read_csv("./data/camels/attributes_hydroatlas_camels.csv")
 
 # filter by degree of regulation (0 = no human influence)
-site_info <- site_info[site_info$dor_pc_pva == 0,]
+catchmentinfo <- catchmentinfo |>
+  filter(dor_pc_pva == 0)
 
-driver_data <- driver_data[driver_data$sitename %in% site_info$gauge_id,]
+driver_data <- driver_data |>
+  filter(sitename %in% catchmentinfo$gauge_id)
 
 # filter out site with runoff higher than precipitation
 multi_year <- driver_data |>
   unnest(forcing) |>
-  select(sitename,date, rain, runoff) |>
+  select(all_of(c(sitename, date, rain, runoff))) |>
   mutate(rain = rain * 24* 60 * 60) |>
   group_by(sitename, year(date)) |>
-  summarise(rain = sum(rain),
-            runoff = sum(runoff)) |>
+  summarise(
+    rain = sum(rain),
+    runoff = sum(runoff)) |>
+  ungroup() |>
   group_by(sitename) |>
-  summarise(rain = mean(rain),
-            runoff = mean(runoff)) |>
+  summarise(
+    rain = mean(rain),
+    runoff = mean(runoff)) |>
   filter(rain > runoff)
 
 # set reference height equals to canopy height

@@ -42,6 +42,11 @@ catchmentinfo <- catchmentinfo |>
 catchmentinfo <- catchmentinfo |>
   filter(gauge_id %in% basin_shapes$gauge_id)
 
+write_csv(
+  catchmentinfo,
+  file = here("data/catchmentinfo_camels.csv")
+)
+
 ## Create driver -------------------------
 ### Common objects
 # Take 20 years, but subset to years for which runoff data is available, done
@@ -49,7 +54,7 @@ catchmentinfo <- catchmentinfo |>
 date_start <- lubridate::ymd(paste0(2001, "-01-01"))
 date_end <- lubridate::ymd(paste0(2020, "-12-31"))
 
-### CO2 ---------
+## CO2 ---------
 df_co2 <- ingest_bysite(
   sitename = "dummy",
   source = "co2_mlo",
@@ -57,6 +62,9 @@ df_co2 <- ingest_bysite(
   year_end = lubridate::year(date_end),
   verbose = FALSE
 )
+
+## CAMELS (CARAVAN) data ---------------
+# Most variables required for rsofun driver are available from CARAVAN files.
 
 ### Loop over files (catchments)
 # read list of all available CSV files from US-CAMELS
@@ -67,7 +75,7 @@ file_list <- list.files(
 )
 
 driver_camels <- purrr::map_dfr(
-  file_list[1:3],
+  file_list,
   ~ get_driver_bycatchment(., catchmentinfo)
 )
 
@@ -148,7 +156,7 @@ ddf_fapar <- df_fapar |>
 
 write_rds(ddf_fapar, file = here("data/ddf_fapar_camels.rds"))
 
-# test
+# inspect
 ddf_fapar$data[[500]] |>
   ggplot(aes(date, fapar)) +
   geom_line()

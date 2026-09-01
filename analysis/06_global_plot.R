@@ -16,7 +16,6 @@ p_model <- p_model |>
   filter(fland < 0.5)
 
 # just p_model and the other
-#
 monthly_era5 <- read_rds("/data/archive_projects/eval_rsofun_et/data/monthly_era5.rds")
 
 montlhy_pml <- read_rds("/data/archive_projects/eval_rsofun_et/data/montlhy_pml.rds")

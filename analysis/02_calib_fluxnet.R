@@ -158,6 +158,8 @@ driver_pt <- driver_pm |>
       is_global = FALSE
     )))
 
+write_rds(driver_pt, file = here("data/driver_pt.rds"))
+
 # Run the calibration for GPP data
 calib_output <- calib_sofun(
   drivers = driver_pt,

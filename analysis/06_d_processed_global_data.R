@@ -1,5 +1,5 @@
 # PURPOSE:
-#   Extract monthly ET from global ET products (PML, GLEAM, FLUXCOM-X)
+#   Extract monthly ET from global ET products (PML, GLEAM, FLUXCOM-X, ERA5-Land)
 #   at selected FLUXNET sites for benchmarking against FluxDataKit observations:
 #     - site selection and valid years from data/fluxnet/sites_years.csv
 #     - site coordinates from data/fluxnet/fdk_site_info.csv
@@ -98,13 +98,13 @@ sites_vect <- terra::vect(
 # Paths
 # =========================================================================
 
-pml_dir <- "/data/archive/eval_rsofun_et/pml_zhang_2016/data"
+pml_dir <- "/data/archive/pml_zhang_2016/data"
 
 gleam_dir <- "/data/archive/gleam_miralles_2025/monthly/E"
 
 fluxcomx_dir <- "/data/archive/fluxcomX_nelson_2023"
 
-out_dir <- "/data/archive_projects/MSc_2025_fgrossi_eval_rsofun_et/processed_global_data/"
+out_dir <- here("data")
 
 
 # =========================================================================

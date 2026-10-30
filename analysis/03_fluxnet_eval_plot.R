@@ -54,7 +54,10 @@ sites <- read_csv(here("data/sites.csv")) |>
 driver <- driver |>
   filter(sitename %in% sites$sitename)
 
-fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv") |>
+# fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv") |>
+ # filter(sitename %in% driver$sitename)
+
+fdk_site_info <- read_csv(here::here("data/fluxnet/fdk_site_info.csv")) |>
   filter(sitename %in% driver$sitename)
 
 # obs_eval <- create_obs_eval(driver, fdk_site_info, target = c("gpp", "le"))
@@ -111,6 +114,10 @@ out_eval_pm_s0 <- eval_sofun(
   overwrite = TRUE,
   light = FALSE
 )
+readr::write_rds(
+  out_eval_pm_s0,
+  here::here("data/out_eval_pm_s0.rds")
+)
 
 #### run drought response evaluation --------
 df_droughtresponse_pm_s0 <- eval_droughtresponse(
@@ -153,6 +160,10 @@ out_eval_pm <- eval_sofun(
   obs_eval = obs_eval,
   overwrite = TRUE,
   light = FALSE
+)
+readr::write_rds(
+  out_eval_pm,
+  here("data/out_eval_pm.rds")
 )
 
 #### run drought response evaluation --------
@@ -197,6 +208,11 @@ out_eval_pt <- eval_sofun(
   overwrite = TRUE,
   light = FALSE
 )
+readr::write_rds(
+  out_eval_pt,
+  here("data/out_eval_pt.rds")
+)
+
 
 #### run drought response evaluation --------
 df_droughtresponse_pt <- eval_droughtresponse(
@@ -1363,3 +1379,581 @@ drought_aet <- plot_grid(PT[[7]] + ylim(-1.5, 0.8) + theme_minimal(), PM[[7]] + 
 
 ggsave(plot = drought_aet, paste0("./fig/", "drought_aet_merged.pdf"), device = "pdf", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)
 ggsave(plot = drought_aet, paste0("./fig/", "drought_aet_merged.svg"), device = "svg", dpi = 300, width = 21 / scaling_factor, height = 7 / scaling_factor)
+
+
+
+# ============================================================
+# LE evaluation plots: weekly, mean annual, spatial-annual
+# ============================================================
+
+library(dplyr)
+library(purrr)
+library(ggplot2)
+library(patchwork)
+
+# ------------------------------------------------------------
+# Combine evaluation data
+# ------------------------------------------------------------
+
+le_evals <- list(
+  "PT" = out_eval_pt,
+  "PM" = out_eval_pm,
+  "PM-S0" = out_eval_pm_s0
+)
+
+le_weekly <- imap_dfr(le_evals, function(x, model_name) {
+  x$le$fluxnet$data$xdf |>
+    mutate(model = model_name)
+}) |>
+  filter(is.finite(obs), is.finite(mod))
+
+le_mean <- imap_dfr(le_evals, function(x, model_name) {
+  x$le$fluxnet$data$meandf |>
+    mutate(model = model_name)
+}) |>
+  filter(is.finite(obs), is.finite(mod))
+
+le_annual <- imap_dfr(le_evals, function(x, model_name) {
+  x$le$fluxnet$data$adf |>
+    mutate(model = model_name)
+}) |>
+  filter(is.finite(obs), is.finite(mod))
+
+# ------------------------------------------------------------
+# Plotting function
+# ------------------------------------------------------------
+
+make_le_panel <- function(model_name, scale_type) {
+
+  if (scale_type == "weekly") {
+
+    df <- le_weekly |>
+      filter(model == model_name)
+
+    p <- ggplot(df, aes(x = mod, y = obs)) +
+      geom_bin_2d(bins = 45) +
+      scale_fill_viridis_c(
+        trans = "log10",
+        name = "Count"
+      ) +
+      geom_abline(
+        slope = 1,
+        intercept = 0,
+        linetype = "dashed",
+        colour = "red"
+      )
+
+  } else if (scale_type == "mean") {
+
+    df <- le_mean |>
+      filter(model == model_name)
+
+    p <- ggplot(df, aes(x = mod, y = obs)) +
+      geom_point(
+        size = 0.8,
+        alpha = 0.7
+      ) +
+      geom_smooth(
+        method = "lm",
+        se = FALSE,
+        colour = "red",
+        linewidth = 0.8
+      ) +
+      geom_abline(
+        slope = 1,
+        intercept = 0,
+        linetype = "dashed",
+        colour = "grey50"
+      )
+
+  } else if (scale_type == "annual") {
+
+    df <- le_annual |>
+      filter(model == model_name)
+
+    p <- ggplot(df, aes(x = mod, y = obs)) +
+      geom_path(
+        aes(group = sitename),
+        colour = "black",
+        alpha = 0.25,
+        linewidth = 0.25
+      ) +
+      geom_smooth(
+        method = "lm",
+        se = FALSE,
+        colour = "red",
+        linewidth = 0.8
+      ) +
+      geom_abline(
+        slope = 1,
+        intercept = 0,
+        linetype = "dashed",
+        colour = "grey50"
+      )
+
+  }
+
+  p +
+    coord_equal() +
+    labs(
+      title = model_name,
+      x = expression("Modelled LE (W " * m^{-2} * ")"),
+      y = expression("Observed LE (W " * m^{-2} * ")")
+    ) +
+    theme_bw(base_size = 10) +
+    theme(
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(
+        hjust = 0.5,
+        face = "bold"
+      )
+    )
+}
+
+# ------------------------------------------------------------
+# Create nine panels
+# ------------------------------------------------------------
+
+p1 <- make_le_panel("PT", "weekly")
+p2 <- make_le_panel("PM", "weekly")
+p3 <- make_le_panel("PM-S0", "weekly")
+
+p4 <- make_le_panel("PT", "mean")
+p5 <- make_le_panel("PM", "mean")
+p6 <- make_le_panel("PM-S0", "mean")
+
+p7 <- make_le_panel("PT", "annual")
+p8 <- make_le_panel("PM", "annual")
+p9 <- make_le_panel("PM-S0", "annual")
+
+# ------------------------------------------------------------
+# Combine into 3 x 3 figure
+# ------------------------------------------------------------
+
+p_le_3x3 <- (
+  p1 | p2 | p3
+) / (
+  p4 | p5 | p6
+) / (
+  p7 | p8 | p9
+)
+
+print(p_le_3x3)
+
+dir.create(
+  here::here("fig"),
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+ggsave(
+  here::here("fig/le_evaluation_3x3.pdf"),
+  plot = p_le_3x3,
+  width = 13,
+  height = 12,
+  dpi = 300
+)
+
+
+# ============================================================
+# ET evaluation plots: weekly, mean annual, spatial-annual
+# ============================================================
+
+library(dplyr)
+library(purrr)
+library(ggplot2)
+library(patchwork)
+library(here)
+
+
+# ------------------------------------------------------------
+# 1. Conversion factors: LE -> ET
+# ------------------------------------------------------------
+
+# Latent heat of vaporization (J kg-1)
+lambda <- 2.45e6
+
+# LE (W m-2) -> ET (mm day-1)
+le_to_et_daily <- 86400 / lambda
+
+# LE (W m-2) -> ET (mm yr-1)
+le_to_et_annual <- 86400 * 365 / lambda
+
+
+# ------------------------------------------------------------
+# 2. Combine evaluation results
+# ------------------------------------------------------------
+
+le_evals <- list(
+  "PT"    = out_eval_pt,
+  "PM"    = out_eval_pm,
+  "PM-S0" = out_eval_pm_s0
+)
+
+
+# ------------------------------------------------------------
+# 3. Prepare 8-day ET data
+# ------------------------------------------------------------
+
+et_weekly <- purrr::imap_dfr(
+  le_evals,
+  function(x, model_name) {
+
+    x$le$fluxnet$data$xdf |>
+      dplyr::select(sitename, obs, mod) |>
+      dplyr::mutate(
+        model = model_name,
+        obs = obs * le_to_et_daily,
+        mod = mod * le_to_et_daily
+      )
+  }
+) |>
+  dplyr::filter(
+    is.finite(obs),
+    is.finite(mod)
+  )
+
+
+# ------------------------------------------------------------
+# 4. Prepare multiyear mean annual ET data
+# ------------------------------------------------------------
+
+et_mean <- purrr::imap_dfr(
+  le_evals,
+  function(x, model_name) {
+
+    x$le$fluxnet$data$meandf |>
+      dplyr::select(sitename, obs, mod) |>
+      dplyr::mutate(
+        model = model_name,
+        obs = obs * le_to_et_annual,
+        mod = mod * le_to_et_annual
+      )
+  }
+) |>
+  dplyr::filter(
+    is.finite(obs),
+    is.finite(mod)
+  )
+
+
+# ------------------------------------------------------------
+# 5. Prepare spatial-annual ET data
+# ------------------------------------------------------------
+
+et_annual <- purrr::imap_dfr(
+  le_evals,
+  function(x, model_name) {
+
+    x$le$fluxnet$data$adf |>
+      dplyr::select(sitename, year, obs, mod) |>
+      dplyr::mutate(
+        model = model_name,
+        obs = obs * le_to_et_annual,
+        mod = mod * le_to_et_annual
+      )
+  }
+) |>
+  dplyr::filter(
+    is.finite(obs),
+    is.finite(mod)
+  ) |>
+  dplyr::arrange(
+    model,
+    sitename,
+    year
+  )
+
+
+# ------------------------------------------------------------
+# 6. Calculate evaluation statistics
+# ------------------------------------------------------------
+
+calculate_stats <- function(df) {
+
+  # RMSE
+  rmse <- sqrt(mean((df$mod - df$obs)^2))
+
+  # Coefficient of determination from linear regression
+  r2 <- summary(
+    lm(obs ~ mod, data = df)
+  )$r.squared
+
+  # Number of valid pairs
+  n <- nrow(df)
+
+  list(
+    rmse = rmse,
+    r2 = r2,
+    n = n
+  )
+}
+
+
+# ------------------------------------------------------------
+# 7. Function to create individual panels
+# ------------------------------------------------------------
+
+make_et_panel <- function(model_name, scale_type) {
+
+  # ----------------------------------------------------------
+  # Row 1: 8-day density scatterplot
+  # ----------------------------------------------------------
+
+  if (scale_type == "weekly") {
+
+    df <- et_weekly |>
+      dplyr::filter(model == model_name)
+
+    p <- ggplot(
+      df,
+      aes(x = mod, y = obs)
+    ) +
+
+      geom_bin_2d(
+        bins = 45
+      ) +
+
+      scale_fill_viridis_c(
+        trans = "log10",
+        name = "Count"
+      ) +
+
+      geom_abline(
+        slope = 1,
+        intercept = 0,
+        linetype = "dashed",
+        colour = "grey30",
+        linewidth = 0.5
+      )
+
+    unit_label <- expression(
+      "ET (mm day"^{-1} * ")"
+    )
+
+    row_title <- "8-day"
+
+
+    # ----------------------------------------------------------
+    # Row 2: Multiyear mean annual ET
+    # ----------------------------------------------------------
+
+  } else if (scale_type == "mean") {
+
+    df <- et_mean |>
+      dplyr::filter(model == model_name)
+
+    p <- ggplot(
+      df,
+      aes(x = mod, y = obs)
+    ) +
+
+      geom_point(
+        colour = "black",
+        size = 0.9,
+        alpha = 0.65
+      ) +
+
+      geom_smooth(
+        method = "lm",
+        formula = y ~ x,
+        se = FALSE,
+        colour = "red",
+        linewidth = 0.8
+      ) +
+
+      geom_abline(
+        slope = 1,
+        intercept = 0,
+        linetype = "dashed",
+        colour = "grey50",
+        linewidth = 0.5
+      )
+
+    unit_label <- expression(
+      "ET (mm yr"^{-1} * ")"
+    )
+
+    row_title <- "Multiyear mean annual"
+
+
+    # ----------------------------------------------------------
+    # Row 3: Spatial-annual ET
+    # ----------------------------------------------------------
+
+  } else if (scale_type == "annual") {
+
+    df <- et_annual |>
+      dplyr::filter(model == model_name)
+
+    p <- ggplot(
+      df,
+      aes(x = mod, y = obs)
+    ) +
+
+      # Connect annual values belonging to the same site
+      geom_path(
+        aes(group = sitename),
+        colour = "black",
+        alpha = 0.25,
+        linewidth = 0.3
+      ) +
+
+      # Overall fitted regression
+      geom_smooth(
+        method = "lm",
+        formula = y ~ x,
+        se = FALSE,
+        colour = "red",
+        linewidth = 0.8
+      ) +
+
+      # 1:1 reference line
+      geom_abline(
+        slope = 1,
+        intercept = 0,
+        linetype = "dashed",
+        colour = "grey50",
+        linewidth = 0.5
+      )
+
+    unit_label <- expression(
+      "ET (mm yr"^{-1} * ")"
+    )
+
+    row_title <- "Spatial-annual"
+
+  } else {
+
+    stop("Unknown scale_type: ", scale_type)
+
+  }
+
+
+  # ----------------------------------------------------------
+  # Calculate statistics
+  # ----------------------------------------------------------
+
+  stats <- calculate_stats(df)
+
+  stats_label <- sprintf(
+    "R² = %.2f\nRMSE = %.2f\nn = %d",
+    stats$r2,
+    stats$rmse,
+    stats$n
+  )
+
+
+  # ----------------------------------------------------------
+  # Add statistics and styling
+  # ----------------------------------------------------------
+
+  p +
+
+    annotate(
+      "label",
+      x = -Inf,
+      y = Inf,
+      label = stats_label,
+      hjust = -0.05,
+      vjust = 1.05,
+      size = 3,
+      fill = "white",
+      label.size = 0
+    ) +
+
+    coord_equal() +
+
+    labs(
+      title = paste(model_name, "-", row_title),
+      x = unit_label,
+      y = unit_label
+    ) +
+
+    theme_bw(
+      base_size = 10
+    ) +
+
+    theme(
+      panel.grid.minor = element_blank(),
+
+      plot.title = element_text(
+        hjust = 0.5,
+        face = "bold",
+        size = 11
+      ),
+
+      axis.title = element_text(
+        size = 10
+      ),
+
+      axis.text = element_text(
+        size = 8
+      ),
+
+      legend.position = "right"
+    )
+}
+
+
+# ------------------------------------------------------------
+# 8. Create all nine panels
+# ------------------------------------------------------------
+
+# Row 1: 8-day ET
+p1 <- make_et_panel("PT",    "weekly")
+p2 <- make_et_panel("PM",    "weekly")
+p3 <- make_et_panel("PM-S0", "weekly")
+
+# Row 2: Multiyear mean annual ET
+p4 <- make_et_panel("PT",    "mean")
+p5 <- make_et_panel("PM",    "mean")
+p6 <- make_et_panel("PM-S0", "mean")
+
+# Row 3: Spatial-annual ET
+p7 <- make_et_panel("PT",    "annual")
+p8 <- make_et_panel("PM",    "annual")
+p9 <- make_et_panel("PM-S0", "annual")
+
+
+# ------------------------------------------------------------
+# 9. Combine into a 3 x 3 figure
+# ------------------------------------------------------------
+
+p_et_3x3 <- (
+  p1 | p2 | p3
+) / (
+  p4 | p5 | p6
+) / (
+  p7 | p8 | p9
+) +
+
+  patchwork::plot_annotation(
+    title = "Evapotranspiration evaluation across FLUXNET sites",
+    subtitle = paste(
+      "PT, PM and PM-S0",
+      "| 8-day, multiyear mean annual and spatial-annual evaluation"
+    )
+  )
+
+# ------------------------------------------------------------
+# 10. Save figure
+# ------------------------------------------------------------
+
+dir.create(
+  here::here("fig"),
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+ggsave(
+  filename = here::here("fig/et_evaluation_3x3.pdf"),
+  plot = p_et_3x3,
+  width = 14,
+  height = 12,
+  bg = "white"
+)
+
+
+
+

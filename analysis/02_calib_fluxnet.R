@@ -78,6 +78,7 @@ driver_pm_s0 <- driver |>
       use_pml = TRUE,
       is_global = FALSE
       )))
+write_rds(driver_pm_s0, here("data/driver_pm_s0.rds"))
 
 # Run the calibration for GPP data
 calib_output <- calib_sofun(
@@ -105,7 +106,9 @@ driver_pm <- driver |>
     )))
 
 # Get 2 m-WHC for file
-rasta <- rast("/data/archive_projects/eval_rsofun_et/data/whc_2m.nc")
+# rasta <- rast("/data/archive_projects/eval_rsofun_et/data/whc_2m.nc")
+rasta <- rast("data/whc_2m.nc")
+
 
 df <- driver_pm |>
   select(sitename,  site_info) |>
@@ -163,6 +166,7 @@ driver_pt <- driver_pm |>
       use_pml= FALSE,
       is_global = FALSE
     )))
+write_rds(driver_pt, here("data/driver_pt.rds"))
 
 # Run the calibration for GPP data
 calib_output <- calib_sofun(

@@ -15,6 +15,7 @@ source(here("R/create_table_latex.R"))
 # These files are all part of the Zenodo release
 driver <- read_rds("/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
 # driver <- read_rds("~/data_2/FluxDataKit/v3.4/zenodo_upload/rsofun_driver_data_v3.4.2.rds")
+driver <- read_rds("data/rsofun_driver_data_v3.4.2.rds") # read rsofun driver from local data folder
 
 fdk_site_info <- read_csv("/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
 # fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
@@ -68,6 +69,8 @@ write_csv(
   sites,
   file = here("data/sites.csv")
 )
+
+# sites <- read.csv("data/sites.csv")
 
 ## Select years ----------------------------------------------------------------
 # select years based on good-quality data sequences

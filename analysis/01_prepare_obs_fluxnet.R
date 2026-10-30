@@ -27,7 +27,10 @@
 library(tidyverse)
 
 ## FLUXNET ---------------------------------------------------------------------
-fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
+# fdk_site_info <- read_csv("~/data_2/FluxDataKit/v3.4/zenodo_upload/fdk_site_info.csv")
+
+
+fdk_site_info <- read_csv(here::here("data/fluxnet/fdk_site_info.csv"))
 
 # Read rsofun driver data, created with applying additional filters in
 # analysis/00_prepare_forcing_fluxnet.R
